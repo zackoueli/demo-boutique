@@ -1,15 +1,128 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { formatPrice, generateOrderId } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft, Lock, MapPin } from "lucide-react";
 
+/* ─── Types API Adresse ─── */
+interface BanFeature {
+  properties: {
+    label: string;
+    housenumber?: string;
+    street?: string;
+    name: string;
+    postcode: string;
+    city: string;
+    context: string;
+  };
+}
+
+/* ─── Composant autocomplete adresse ─── */
+function AddressAutocomplete({
+  value,
+  onChange,
+  onSelect,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (address: string, city: string, postalCode: string) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<BanFeature[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.length < 4) { setSuggestions([]); setOpen(false); return; }
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(value)}&type=housenumber&limit=5&autocomplete=1`
+        );
+        const data = await res.json();
+        setSuggestions(data.features ?? []);
+        setOpen(true);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, [value]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function handleSelect(feature: BanFeature) {
+    const { name, postcode, city } = feature.properties;
+    onSelect(name, city, postcode);
+    setSuggestions([]);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-sm font-medium text-brown-mid mb-1.5">
+        Adresse <span className="text-terracotta">*</span>
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Ex : 12 rue de la Paix"
+          required
+          className="w-full px-4 py-3 pr-10 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          {loading
+            ? <div className="w-4 h-4 border-2 border-brown-light border-t-transparent rounded-full animate-spin" />
+            : <MapPin size={15} className="text-brown-light" />
+          }
+        </div>
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-50 top-full mt-1 w-full bg-cream border border-border rounded-xl shadow-lg overflow-hidden">
+          {suggestions.map((f, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => handleSelect(f)}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-sand transition-colors flex items-start gap-2"
+              >
+                <MapPin size={13} className="text-terracotta mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="text-brown font-medium">{f.properties.name}</span>
+                  <span className="text-brown-light ml-1">{f.properties.postcode} {f.properties.city}</span>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─── Page checkout ─── */
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, total, clearCart } = useCart();
@@ -27,6 +140,10 @@ export default function CheckoutPage() {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
+  function handleAddressSelect(address: string, city: string, postalCode: string) {
+    setForm((f) => ({ ...f, address, city, postalCode }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (items.length === 0) return;
@@ -40,7 +157,6 @@ export default function CheckoutPage() {
         payment: { last4: form.cardNumber.replace(/\s/g, "").slice(-4), method: "card" },
         subtotal: total, total, createdAt: serverTimestamp(),
       });
-      // Décrémenter le stock de chaque produit commandé
       await Promise.all(
         items.map(async (item) => {
           const productRef = doc(db, "products", item.productId);
@@ -52,7 +168,6 @@ export default function CheckoutPage() {
           }
         })
       );
-
       clearCart();
       router.push(`/confirmation/${orderId}`);
     } catch {
@@ -91,7 +206,13 @@ export default function CheckoutPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
               <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-              <div className="sm:col-span-2"><Field label="Adresse" name="address" value={form.address} onChange={handleChange} required /></div>
+              <div className="sm:col-span-2">
+                <AddressAutocomplete
+                  value={form.address}
+                  onChange={(v) => setForm((f) => ({ ...f, address: v }))}
+                  onSelect={handleAddressSelect}
+                />
+              </div>
               <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
               <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
               <div className="sm:col-span-2"><Field label="Pays" name="country" value={form.country} onChange={handleChange} required /></div>
@@ -148,7 +269,9 @@ function Field({ label, name, value, onChange, type = "text", placeholder, requi
 }) {
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium text-brown-mid mb-1.5">{label}</label>
+      <label htmlFor={name} className="block text-sm font-medium text-brown-mid mb-1.5">
+        {label}{required && <span className="text-terracotta ml-0.5">*</span>}
+      </label>
       <input id={name} name={name} type={type} value={value} onChange={onChange} placeholder={placeholder} required={required}
         className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition"
       />
