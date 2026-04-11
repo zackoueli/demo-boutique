@@ -1,0 +1,197 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Product } from "@/lib/types";
+import { useCart } from "@/lib/cart-context";
+import { useToast } from "@/lib/toast-context";
+import { formatPrice } from "@/lib/utils";
+import Link from "next/link";
+import { ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react";
+import { ProductDetailSkeleton, ProductGridSkeleton } from "@/app/ui/skeletons";
+import ImageCarousel from "@/app/ui/image-carousel";
+import ProductCard from "@/app/ui/product-card";
+
+const CATEGORY_LABELS: Record<Product["category"], string> = {
+  rings: "Bague", necklaces: "Collier", bracelets: "Bracelet", earrings: "Boucles d'oreilles",
+};
+
+type Tab = "description" | "materials" | "care";
+
+export default function ProductClient(props: { params: Promise<{ slug: string }> }) {
+  const [slug, setSlug] = useState<string | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [similar, setSimilar] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [added, setAdded] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [tab, setTab] = useState<Tab>("description");
+  const { addItem } = useCart();
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    props.params.then(({ slug }) => setSlug(slug));
+  }, [props.params]);
+
+  useEffect(() => {
+    if (!slug) return;
+    getDocs(query(collection(db, "products"), where("slug", "==", slug), limit(1))).then((snap) => {
+      if (!snap.empty) {
+        const p = { id: snap.docs[0].id, ...snap.docs[0].data() } as Product;
+        setProduct(p);
+        // Produits similaires
+        getDocs(
+          query(collection(db, "products"), where("category", "==", p.category), limit(5))
+        ).then((simSnap) => {
+          setSimilar(
+            simSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as Product))
+              .filter((s) => s.id !== p.id)
+              .slice(0, 4)
+          );
+        });
+      }
+      setLoading(false);
+    });
+  }, [slug]);
+
+  function handleAddToCart() {
+    if (!product) return;
+    addItem({ productId: product.id, name: product.name, price: product.price, imageUrl: product.imageUrl, quantity: qty });
+    showToast({ message: product.name, imageUrl: product.imageUrl, price: formatPrice(product.price) });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  }
+
+  if (loading) return <div className="bg-cream min-h-screen"><ProductDetailSkeleton /></div>;
+
+  if (!product) {
+    return (
+      <div className="bg-cream min-h-screen flex items-center justify-center px-4 text-center">
+        <div>
+          <p className="font-serif text-xl text-brown-light mb-4">Produit introuvable.</p>
+          <Link href="/catalogue" className="inline-flex items-center gap-2 text-terracotta hover:text-terra-light transition-colors text-sm">
+            <ArrowLeft size={14} /> Retour au catalogue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Construire la galerie : images[] en priorité, sinon imageUrl seul
+  const gallery = product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [];
+
+  // Onglets disponibles
+  const tabs: { key: Tab; label: string; content: string | undefined }[] = [
+    { key: "description", label: "Description", content: product.description },
+    { key: "materials", label: "Matériaux", content: product.materials },
+    { key: "care", label: "Entretien", content: product.careInstructions },
+  ];
+  const availableTabs = tabs.filter((t) => t.content);
+  // Si l'onglet actif n'a pas de contenu, retomber sur le premier disponible
+  const activeTab = availableTabs.find((t) => t.key === tab) ?? availableTabs[0];
+
+  return (
+    <div className="bg-cream min-h-screen">
+      <div className="max-w-5xl mx-auto px-4 py-12">
+        <Link href="/catalogue" className="inline-flex items-center gap-2 text-sm text-brown-light hover:text-terracotta mb-10 transition-colors">
+          <ArrowLeft size={14} /> Retour au catalogue
+        </Link>
+
+        <div className="grid md:grid-cols-2 gap-14">
+          {/* Galerie */}
+          <ImageCarousel images={gallery} alt={product.name} featured={product.featured} />
+
+          {/* Infos */}
+          <div className="flex flex-col py-2">
+            <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-3">
+              {CATEGORY_LABELS[product.category]}
+            </p>
+            <h1 className="font-serif text-3xl font-semibold text-brown mb-4 leading-tight">{product.name}</h1>
+            <p className="text-3xl font-semibold text-terracotta mb-6">{formatPrice(product.price)}</p>
+
+            {/* Stock */}
+            <div className="flex items-center gap-2 mb-6">
+              {product.stock > 0 ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  <span className="text-sm text-brown-mid">En stock ({product.stock} disponibles)</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+                  <span className="text-sm text-brown-light">Rupture de stock</span>
+                </>
+              )}
+            </div>
+
+            {/* Quantité */}
+            <div className="flex items-center gap-4 mb-6">
+              <span className="text-sm text-brown-light">Quantité :</span>
+              <div className="flex items-center border border-border rounded-xl bg-sand">
+                <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors">−</button>
+                <span className="px-4 text-sm font-medium text-brown">{qty}</span>
+                <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))} disabled={qty >= product.stock} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors disabled:opacity-30">+</button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={product.stock === 0}
+              className={`flex items-center justify-center gap-2.5 py-4 px-8 rounded-2xl font-medium text-sm transition-all mb-8 ${
+                added ? "bg-green-700 text-cream" : "bg-brown text-cream hover:bg-brown-mid"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              {added ? <><CheckCircle size={18} /> Ajouté au panier !</> : <><ShoppingBag size={18} /> Ajouter au panier</>}
+            </button>
+
+            {/* Onglets */}
+            {availableTabs.length > 0 && (
+              <div className="border-t border-border pt-6">
+                {availableTabs.length > 1 && (
+                  <div className="flex gap-1 mb-5 bg-sand rounded-xl p-1">
+                    {availableTabs.map((t) => (
+                      <button
+                        key={t.key}
+                        onClick={() => setTab(t.key)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                          tab === t.key ? "bg-cream text-brown shadow-sm" : "text-brown-light hover:text-brown"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-sm text-brown-light leading-relaxed">
+                  {activeTab?.content}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Produits similaires */}
+        {similar.length > 0 && (
+          <div className="mt-20">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">
+                  Dans la même catégorie
+                </p>
+                <h2 className="font-serif text-2xl font-semibold text-brown">Vous aimerez aussi</h2>
+              </div>
+              <Link href={`/catalogue?category=${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">
+                Voir tout →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              {similar.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
