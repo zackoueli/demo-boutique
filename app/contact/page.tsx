@@ -24,7 +24,7 @@ export default function ContactPage() {
     message: "",
   });
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
@@ -36,16 +36,25 @@ export default function ContactPage() {
     if (!form.name.trim() || !form.email.trim() || !form.subject || !form.message.trim()) return;
     setLoading(true); setError("");
     try {
-      await addDoc(collection(db, "contactMessages"), {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        subject: form.subject,
-        message: form.message.trim(),
+      // Crée directement une conversation (même système que la messagerie)
+      const convRef = await addDoc(collection(db, "conversations"), {
         userId: user?.uid ?? null,
-        status: "unread",
+        userEmail: form.email.trim(),
+        userName: form.name.trim(),
+        subject: form.subject,
+        status: "open",
+        source: "contact", // distingue l'origine pour l'admin
+        lastMessage: form.message.trim(),
+        lastMessageAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       });
-      setSuccess(true);
+      // Premier message dans la sous-collection
+      await addDoc(collection(db, "conversations", convRef.id, "messages"), {
+        sender: "user",
+        content: form.message.trim(),
+        createdAt: serverTimestamp(),
+      });
+      setConversationId(convRef.id);
       setForm({ name: "", email: "", subject: "", message: "" });
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
@@ -76,7 +85,7 @@ export default function ContactPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-10">
-        {/* Infos de contact */}
+        {/* Infos */}
         <div className="space-y-6">
           <div>
             <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Informations</p>
@@ -100,37 +109,48 @@ export default function ContactPage() {
 
           {user && (
             <div className="p-4 bg-sand border border-border rounded-2xl">
-              <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-2">Messagerie</p>
+              <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-2">Mes messages</p>
               <p className="text-xs text-brown-light mb-3">
-                Suivez vos échanges avec notre équipe directement depuis votre espace.
+                Retrouvez tous vos échanges (formulaire et messagerie) au même endroit.
               </p>
               <Link
                 href="/messages"
                 className="inline-flex items-center gap-2 text-xs font-medium text-terracotta hover:text-terra-light transition-colors"
               >
-                <MessageSquare size={13} /> Mes messages →
+                <MessageSquare size={13} /> Voir mes messages →
               </Link>
             </div>
           )}
         </div>
 
-        {/* Formulaire */}
+        {/* Formulaire / Confirmation */}
         <div className="md:col-span-2">
-          {success ? (
+          {conversationId ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-5">
                 <CheckCircle size={32} className="text-green-600" />
               </div>
               <h2 className="font-serif text-xl font-semibold text-brown mb-2">Message envoyé !</h2>
               <p className="text-brown-light text-sm max-w-xs mb-6">
-                Merci pour votre message. Notre équipe vous répondra dans les plus brefs délais.
+                Notre équipe vous répondra dans les plus brefs délais.
+                {user && " Vous pouvez suivre la réponse dans vos messages."}
               </p>
-              <button
-                onClick={() => setSuccess(false)}
-                className="px-6 py-2.5 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors"
-              >
-                Envoyer un autre message
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {user && (
+                  <Link
+                    href="/messages"
+                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors"
+                  >
+                    <MessageSquare size={14} /> Suivre dans mes messages
+                  </Link>
+                )}
+                <button
+                  onClick={() => setConversationId(null)}
+                  className="px-6 py-2.5 border border-border rounded-xl text-sm text-brown-mid hover:bg-sand transition-colors"
+                >
+                  Envoyer un autre message
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -176,9 +196,7 @@ export default function ContactPage() {
                   className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition appearance-none"
                 >
                   <option value="">Sélectionner un sujet…</option>
-                  {SUBJECTS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
 
