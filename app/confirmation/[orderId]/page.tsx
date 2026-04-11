@@ -50,11 +50,22 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
           <div className="bg-sand border border-border rounded-2xl p-7 space-y-7">
             <div>
               <h2 className="font-serif font-semibold text-brown mb-4">Articles commandés</h2>
-              <div className="space-y-2">
-                {order.items.map((item) => (
-                  <div key={item.productId} className="flex justify-between text-sm text-brown-mid">
-                    <span>{item.name} × {item.quantity}</span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
+              <div className="space-y-3">
+                {order.items.map((item, idx) => (
+                  <div key={`${item.productId}-${idx}`} className="text-sm text-brown-mid">
+                    <div className="flex justify-between">
+                      <span>{item.name} × {item.quantity}</span>
+                      <span>{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                    {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {Object.entries(item.customizationLabels).map(([label, value]) => (
+                          <span key={label} className="text-xs bg-sand border border-border rounded px-1.5 py-0.5 text-brown-mid">
+                            {label} : {value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

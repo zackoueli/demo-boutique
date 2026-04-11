@@ -107,9 +107,20 @@ export default function ComptePage() {
                     <span className="font-semibold text-terracotta">{formatPrice(order.total)}</span>
                   </div>
                 </div>
-                <div className="text-sm text-brown-light">
-                  {order.items.map((item) => (
-                    <span key={item.productId} className="inline-block mr-3">{item.name} × {item.quantity}</span>
+                <div className="space-y-1.5 text-sm text-brown-light">
+                  {order.items.map((item, idx) => (
+                    <div key={`${item.productId}-${idx}`}>
+                      <span>{item.name} × {item.quantity}</span>
+                      {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
+                        <span className="ml-2 inline-flex flex-wrap gap-1">
+                          {Object.entries(item.customizationLabels).map(([label, value]) => (
+                            <span key={label} className="text-xs bg-sand border border-border rounded px-1.5 py-0.5 text-brown-mid">
+                              {label} : {value}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

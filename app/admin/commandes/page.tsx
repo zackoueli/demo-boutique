@@ -247,11 +247,22 @@ export default function AdminCommandesPage() {
                       {/* Articles */}
                       <div className="md:col-span-1">
                         <p className="font-serif font-semibold text-brown mb-3">Articles commandés</p>
-                        <div className="space-y-2">
-                          {order.items?.map((item) => (
-                            <div key={item.productId} className="flex justify-between text-brown-mid">
-                              <span className="truncate flex-1 pr-2">{item.name} × {item.quantity}</span>
-                              <span className="flex-shrink-0">{formatPrice(item.price * item.quantity)}</span>
+                        <div className="space-y-3">
+                          {order.items?.map((item, idx) => (
+                            <div key={`${item.productId}-${idx}`} className="text-brown-mid">
+                              <div className="flex justify-between">
+                                <span className="truncate flex-1 pr-2">{item.name} × {item.quantity}</span>
+                                <span className="flex-shrink-0">{formatPrice(item.price * item.quantity)}</span>
+                              </div>
+                              {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {Object.entries(item.customizationLabels).map(([label, value]) => (
+                                    <span key={label} className="text-xs bg-terracotta/10 text-terracotta border border-terracotta/20 rounded px-1.5 py-0.5">
+                                      {label} : {value}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                           <div className="flex justify-between font-semibold text-brown border-t border-border pt-2 mt-1">
