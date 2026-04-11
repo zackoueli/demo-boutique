@@ -85,9 +85,11 @@ function ConversationList({
 /* ─── Vue détail conversation ─── */
 function ConversationDetail({
   conversationId,
+  status,
   onBack,
 }: {
   conversationId: string;
+  status: "open" | "closed";
   onBack: () => void;
 }) {
   const { user, profile } = useAuth();
@@ -125,7 +127,6 @@ function ConversationDetail({
       await updateDoc(doc(db, "conversations", conversationId), {
         lastMessage: content,
         lastMessageAt: serverTimestamp(),
-        status: "open",
       });
     } finally {
       setSending(false);
@@ -170,24 +171,32 @@ function ConversationDetail({
         <div ref={bottomRef} />
       </div>
 
-      <div className="p-4 border-t border-border">
-        <div className="flex gap-2">
-          <input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendMessage())}
-            placeholder="Votre message…"
-            className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={sending || !newMessage.trim()}
-            className="p-3 bg-brown text-cream rounded-xl hover:bg-brown-mid transition-colors disabled:opacity-40"
-          >
-            <Send size={16} />
-          </button>
+      {status === "open" ? (
+        <div className="p-4 border-t border-border">
+          <div className="flex gap-2">
+            <input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendMessage())}
+              placeholder="Votre message…"
+              className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={sending || !newMessage.trim()}
+              className="p-3 bg-brown text-cream rounded-xl hover:bg-brown-mid transition-colors disabled:opacity-40"
+            >
+              <Send size={16} />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-4 border-t border-border">
+          <p className="text-center text-xs text-brown-light bg-sand border border-border rounded-xl py-3 px-4">
+            Cette conversation a été clôturée. Contactez-nous pour la rouvrir.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -371,6 +380,7 @@ export default function MessagesPage() {
                 <ConversationDetail
                   key={selectedId}
                   conversationId={selectedId}
+                  status={conversations.find((c) => c.id === selectedId)?.status ?? "open"}
                   onBack={() => setSelectedId(null)}
                 />
               ) : (
