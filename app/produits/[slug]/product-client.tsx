@@ -77,17 +77,45 @@ function CustomizationInput({
   }
 
   if (field.type === "color") {
-    // Palette de couleurs prédéfinies
     const COLOR_MAP: Record<string, string> = {
-      "Or": "#D4AF37",
-      "Argent": "#C0C0C0",
-      "Rose": "#F4A7B9",
-      "Bronze": "#CD7F32",
-      "Blanc": "#FFFFFF",
-      "Noir": "#2C2C2C",
-      "Doré": "#FFD700",
-      "Cuivre": "#B87333",
+      // Métaux / paillettes
+      "Or": "#D4AF37", "Doré": "#FFD700", "Or rose": "#E8A090",
+      "Argent": "#C0C0C0", "Argenté": "#A8A8A8",
+      "Bronze": "#CD7F32", "Cuivre": "#B87333",
+      // Basiques
+      "Blanc": "#FFFFFF", "Crème": "#FFF8F0", "Ivoire": "#FFFFF0",
+      "Noir": "#1A1A1A", "Gris": "#808080", "Gris clair": "#D3D3D3",
+      // Chauds
+      "Rouge": "#E53935", "Rouge bordeaux": "#800020", "Bordeaux": "#722F37",
+      "Rose": "#F4A7B9", "Rose poudré": "#F8C8D4", "Rose fuchsia": "#FF69B4",
+      "Orange": "#FF8C00", "Corail": "#FF6B6B", "Saumon": "#FA8072",
+      "Jaune": "#FFD600", "Jaune doré": "#F5C518",
+      "Terracotta": "#C76442",
+      // Froids
+      "Bleu": "#1976D2", "Bleu marine": "#002366", "Bleu ciel": "#87CEEB",
+      "Bleu turquoise": "#40E0D0", "Turquoise": "#30D5C8",
+      "Vert": "#2E7D32", "Vert sauge": "#8FBC8B", "Vert menthe": "#98FF98",
+      "Violet": "#7B1FA2", "Mauve": "#C8A2C8", "Lilas": "#C8A2C8",
+      "Lavande": "#E6E6FA",
+      // Naturels
+      "Marron": "#795548", "Caramel": "#C68642", "Beige": "#F5F5DC",
+      "Nude": "#E8C9A0",
     };
+
+    function resolveColor(opt: string): string {
+      if (opt.startsWith("#") || opt.startsWith("rgb")) return opt;
+      return COLOR_MAP[opt] ?? "#E0D5C8"; // fallback neutre visible
+    }
+
+    function isLight(opt: string): boolean {
+      const hex = resolveColor(opt).replace("#", "");
+      if (hex.length < 6) return false;
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return (r * 299 + g * 587 + b * 114) / 1000 > 180;
+    }
+
     return (
       <div>
         <label className="block text-sm font-medium text-brown-mid mb-1.5">
@@ -103,10 +131,10 @@ function CustomizationInput({
               className={`w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center ${
                 value === opt ? "border-brown scale-110 shadow-md" : "border-border hover:border-brown-mid"
               }`}
-              style={{ backgroundColor: COLOR_MAP[opt] ?? opt }}
+              style={{ backgroundColor: resolveColor(opt) }}
             >
               {value === opt && (
-                <CheckCircle size={14} className={COLOR_MAP[opt] === "#FFFFFF" ? "text-brown" : "text-white"} />
+                <CheckCircle size={14} className={isLight(opt) ? "text-brown" : "text-white"} />
               )}
             </button>
           ))}
@@ -305,7 +333,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
             {/* Onglets */}
             {availableTabs.length > 0 && (
               <div className="border-t border-border pt-6">
-                {availableTabs.length > 1 && (
+                {availableTabs.length > 1 ? (
                   <div className="flex gap-1 mb-5 bg-sand rounded-xl p-1">
                     {availableTabs.map((t) => (
                       <button
@@ -319,6 +347,10 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                       </button>
                     ))}
                   </div>
+                ) : (
+                  <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-3">
+                    {activeTab?.label}
+                  </p>
                 )}
                 <p className="text-sm text-brown-light leading-relaxed">
                   {activeTab?.content}
