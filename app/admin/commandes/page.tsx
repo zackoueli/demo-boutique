@@ -5,7 +5,7 @@ import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Search, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, RefreshCw, Home, Store } from "lucide-react";
 
 const STATUSES: Order["status"][] = ["pending", "processing", "shipped", "delivered", "cancelled"];
 
@@ -203,6 +203,13 @@ export default function AdminCommandesPage() {
                     <p className="text-xs text-brown-light truncate">{order.userEmail}</p>
                   </div>
 
+                  {/* Type livraison */}
+                  <span className="hidden lg:flex flex-shrink-0" title={order.shipping?.type === "relay" ? "Point relais" : "Domicile"}>
+                    {order.shipping?.type === "relay"
+                      ? <Store size={14} className="text-purple-500" />
+                      : <Home size={14} className="text-blue-400" />}
+                  </span>
+
                   {/* Date */}
                   <p className="text-xs text-brown-light flex-shrink-0 hidden md:block">{formatDate(order.createdAt)}</p>
 
@@ -256,13 +263,44 @@ export default function AdminCommandesPage() {
 
                       {/* Livraison */}
                       <div>
-                        <p className="font-serif font-semibold text-brown mb-3">Adresse de livraison</p>
-                        <address className="not-italic text-brown-mid space-y-1 leading-relaxed">
+                        <p className="font-serif font-semibold text-brown mb-3">Livraison</p>
+
+                        {/* Badge type de livraison */}
+                        {order.shipping?.type === "relay" ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-xs font-medium mb-3">
+                            <Store size={12} />
+                            Point relais
+                            {(order.shipping as { carrier?: string }).carrier && (
+                              <span className="ml-1 font-semibold">· {(order.shipping as { carrier?: string }).carrier}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium mb-3">
+                            <Home size={12} />
+                            Domicile
+                          </div>
+                        )}
+
+                        {/* Nom du point relais si applicable */}
+                        {order.shipping?.type === "relay" && (order.shipping as { relayPoint?: { name: string } }).relayPoint && (
+                          <p className="text-sm font-semibold text-brown mb-1">
+                            {(order.shipping as { relayPoint?: { name: string } }).relayPoint!.name}
+                          </p>
+                        )}
+
+                        <address className="not-italic text-brown-mid space-y-1 leading-relaxed text-sm">
                           <p className="font-medium text-brown">{order.shipping?.fullName}</p>
                           <p>{order.shipping?.address}</p>
                           <p>{order.shipping?.postalCode} {order.shipping?.city}</p>
                           <p>{order.shipping?.country}</p>
                         </address>
+
+                        {/* Horaires du point relais */}
+                        {order.shipping?.type === "relay" && (order.shipping as { relayPoint?: { hours?: string } }).relayPoint?.hours && (
+                          <p className="text-xs text-brown-light mt-2 italic">
+                            {(order.shipping as { relayPoint?: { hours?: string } }).relayPoint!.hours}
+                          </p>
+                        )}
                       </div>
 
                       {/* Paiement & meta */}
