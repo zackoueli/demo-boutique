@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -9,7 +9,7 @@ import ProductCard from "@/app/ui/product-card";
 import { Search } from "lucide-react";
 import { ProductGridSkeleton } from "@/app/ui/skeletons";
 
-export default function RecherchePage() {
+function RechercheContent() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
   const [results, setResults] = useState<Product[]>([]);
@@ -35,7 +35,7 @@ export default function RecherchePage() {
   }, [q]);
 
   return (
-    <div className="bg-cream min-h-screen">
+    <>
       <div className="bg-sand border-b border-border">
         <div className="max-w-6xl mx-auto px-4 py-12">
           <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-2">Recherche</p>
@@ -52,7 +52,7 @@ export default function RecherchePage() {
 
       <div className="max-w-6xl mx-auto px-4 py-10">
         {loading ? (
-            <ProductGridSkeleton count={8} />
+          <ProductGridSkeleton count={8} />
         ) : !q ? (
           <div className="text-center py-24 text-brown-light">
             <Search size={40} className="mx-auto mb-4 text-parchment" />
@@ -70,6 +70,16 @@ export default function RecherchePage() {
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+export default function RecherchePage() {
+  return (
+    <div className="bg-cream min-h-screen">
+      <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-10"><ProductGridSkeleton count={8} /></div>}>
+        <RechercheContent />
+      </Suspense>
     </div>
   );
 }
