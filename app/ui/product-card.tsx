@@ -27,6 +27,7 @@ export default function ProductCard({ product }: { product: Product }) {
       productId: product.id,
       name: product.name,
       price: product.price,
+      basePrice: product.price,
       imageUrl: product.imageUrl,
       quantity: 1,
     });

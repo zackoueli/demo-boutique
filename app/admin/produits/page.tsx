@@ -373,6 +373,25 @@ export default function AdminProduitsPage() {
                           </div>
                         </div>
 
+                        {field.type === "text" && (
+                          <div>
+                            <label className="block text-xs font-medium text-brown-mid mb-1">
+                              Supplément prix <span className="text-brown-light font-normal">(€, si renseigné)</span>
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={field.extraPrice !== undefined ? field.extraPrice / 100 : ""}
+                              onChange={(e) => updateCustomField(field.id, {
+                                extraPrice: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : undefined,
+                              })}
+                              placeholder="Ex : 5 pour +5,00 €"
+                              className={inputCls + " text-xs py-2"}
+                            />
+                          </div>
+                        )}
+
                         {(field.type === "select" || field.type === "color") && (
                           <div>
                             <label className="block text-xs font-medium text-brown-mid mb-1">
@@ -385,11 +404,14 @@ export default function AdminProduitsPage() {
                               })}
                               rows={3}
                               placeholder={field.type === "color"
-                                ? "Or\nArgent\nRose\nBronze"
-                                : "Petite\nMoyenne\nGrande"
+                                ? "Or\nArgent:10\nRose:5\nBronze"
+                                : "Petite\nMoyenne:3\nGrande:5"
                               }
                               className={inputCls + " resize-none text-xs py-2"}
                             />
+                            <p className="text-xs text-brown-light mt-1">
+                              Pour ajouter un supplément : <span className="font-mono">NomOption:prix</span> — ex. <span className="font-mono">Or:10</span> = +10,00 €
+                            </p>
                           </div>
                         )}
 

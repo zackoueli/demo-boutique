@@ -2,7 +2,10 @@ export interface CustomizationField {
   id: string;
   type: "text" | "select" | "color";
   label: string;
-  options?: string[]; // pour select et color
+  /** Pour type "select"/"color" : "NomOption" ou "NomOption:prixEnEuros" ex. "Or:10" */
+  options?: string[];
+  /** Pour type "text" : supplément fixe en centimes si le champ est renseigné */
+  extraPrice?: number;
   required: boolean;
 }
 
@@ -28,11 +31,13 @@ export interface CartItem {
   cartItemId: string; // productId ou productId_hash pour articles personnalisés
   productId: string;
   name: string;
-  price: number;
+  price: number; // prix unitaire final (base + personnalisation)
+  basePrice: number; // prix de base du produit (sans personnalisation)
   imageUrl: string;
   quantity: number;
   customization?: Record<string, string>; // fieldId -> valeur choisie
   customizationLabels?: Record<string, string>; // fieldLabel -> valeur choisie (pour affichage)
+  customizationExtra?: number; // supplément de personnalisation en centimes (pour affichage)
 }
 
 export interface RelayPoint {

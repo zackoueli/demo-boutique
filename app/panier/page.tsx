@@ -45,7 +45,14 @@ export default function PanierPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-serif font-medium text-brown truncate">{item.name}</h3>
-                <p className="text-terracotta text-sm font-semibold mt-1">{formatPrice(item.price)}</p>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <p className="text-terracotta text-sm font-semibold">{formatPrice(item.price)}</p>
+                  {item.customizationExtra && item.customizationExtra > 0 && item.basePrice && (
+                    <p className="text-xs text-brown-light">
+                      ({formatPrice(item.basePrice)} + {formatPrice(item.customizationExtra)} perso.)
+                    </p>
+                  )}
+                </div>
                 {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {Object.entries(item.customizationLabels).map(([label, value]) => (

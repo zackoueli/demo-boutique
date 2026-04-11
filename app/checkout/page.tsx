@@ -11,6 +11,10 @@ import type { RelayPoint } from "@/lib/types";
 import Link from "next/link";
 import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store, Search, Clock } from "lucide-react";
 
+/* ─── Seuil livraison offerte ─── */
+const FREE_SHIPPING_THRESHOLD = 8000; // 80€ en centimes
+const HOME_DELIVERY_PRICE = 599;      // 5,99€
+
 /* ─── Transporteurs disponibles ─── */
 const CARRIERS = [
   {
@@ -19,7 +23,7 @@ const CARRIERS = [
     abbr: "MR",
     bgColor: "#E30613",
     desc: "2–4 jours ouvrés",
-    price: 0,
+    price: 399,
   },
   {
     id: "colissimo",
@@ -28,7 +32,7 @@ const CARRIERS = [
     bgColor: "#FFCD00",
     textColor: "#003189",
     desc: "2–3 jours ouvrés",
-    price: 0,
+    price: 599,
   },
   {
     id: "chronopost",
@@ -36,7 +40,7 @@ const CARRIERS = [
     abbr: "CHR",
     bgColor: "#003189",
     desc: "1–2 jours ouvrés",
-    price: 199,
+    price: 999,
   },
   {
     id: "dpd",
@@ -44,7 +48,7 @@ const CARRIERS = [
     abbr: "DPD",
     bgColor: "#DC0032",
     desc: "2–3 jours ouvrés",
-    price: 0,
+    price: 499,
   },
 ];
 
@@ -260,8 +264,10 @@ export default function CheckoutPage() {
       ? Math.round(total * promoResult.value / 100)
       : Math.min(total, promoResult.value)
     : 0;
-  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : 0;
-  const finalTotal = Math.max(0, total - discount + shippingCost);
+  const afterDiscount = Math.max(0, total - discount);
+  const homeDeliveryCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : HOME_DELIVERY_PRICE;
+  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : homeDeliveryCost;
+  const finalTotal = afterDiscount + shippingCost;
 
   // Réinitialiser le point sélectionné si on change de transporteur
   useEffect(() => {
@@ -420,7 +426,13 @@ export default function CheckoutPage() {
                 <Home size={18} className={deliveryType === "home" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
                 <div>
                   <p className={`font-medium text-sm ${deliveryType === "home" ? "text-brown" : "text-brown-mid"}`}>Livraison à domicile</p>
-                  <p className="text-xs text-brown-light mt-0.5">3–5 jours ouvrés · Offert</p>
+                  <p className="text-xs text-brown-light mt-0.5">
+                    3–5 jours ouvrés ·{" "}
+                    {homeDeliveryCost === 0
+                      ? <span className="text-green-700 font-medium">Offerte</span>
+                      : <span>{formatPrice(HOME_DELIVERY_PRICE)} <span className="text-brown-light">(offerte dès 80 €)</span></span>
+                    }
+                  </p>
                 </div>
                 {deliveryType === "home" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>

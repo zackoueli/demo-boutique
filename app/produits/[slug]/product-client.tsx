@@ -8,8 +8,8 @@ import { useCart, buildCartItemId } from "@/lib/cart-context";
 import { useToast } from "@/lib/toast-context";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
-import { ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react";
-import { ProductDetailSkeleton, ProductGridSkeleton } from "@/app/ui/skeletons";
+import { ShoppingBag, ArrowLeft, CheckCircle, Plus } from "lucide-react";
+import { ProductDetailSkeleton } from "@/app/ui/skeletons";
 import ImageCarousel from "@/app/ui/image-carousel";
 import ProductCard from "@/app/ui/product-card";
 import ProductReviews from "@/app/ui/product-reviews";
@@ -21,6 +21,32 @@ const CATEGORY_LABELS: Record<Product["category"], string> = {
 };
 
 type Tab = "description" | "materials" | "care";
+
+/* ─── Helpers parsing "NomOption" ou "NomOption:prix€" ─── */
+function optionLabel(opt: string): string {
+  return opt.split(":")[0].trim();
+}
+function optionExtra(opt: string): number {
+  const parts = opt.split(":");
+  if (parts.length < 2) return 0;
+  return Math.round(parseFloat(parts[1].trim()) * 100) || 0; // euros → centimes
+}
+
+/* ─── Calcul du supplément total de personnalisation ─── */
+function calcExtra(fields: CustomizationField[], customization: Record<string, string>): number {
+  let total = 0;
+  for (const field of fields) {
+    const val = customization[field.id];
+    if (!val) continue;
+    if (field.type === "text") {
+      total += field.extraPrice ?? 0;
+    } else {
+      const matchOpt = field.options?.find((o) => optionLabel(o) === val);
+      if (matchOpt) total += optionExtra(matchOpt);
+    }
+  }
+  return total;
+}
 
 /* ─── Rendu d'un champ de personnalisation ─── */
 function CustomizationInput({
@@ -35,8 +61,13 @@ function CustomizationInput({
   if (field.type === "text") {
     return (
       <div>
-        <label className="block text-sm font-medium text-brown-mid mb-1.5">
-          {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
+        <label className="block text-sm font-medium text-brown-mid mb-1.5 flex items-center gap-2">
+          {field.label}{field.required && <span className="text-terracotta">*</span>}
+          {field.extraPrice && field.extraPrice > 0 && (
+            <span className="text-xs font-normal text-terracotta bg-terracotta/10 px-1.5 py-0.5 rounded-md">
+              +{formatPrice(field.extraPrice)}
+            </span>
+          )}
         </label>
         <input
           type="text"
@@ -57,20 +88,29 @@ function CustomizationInput({
           {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
         </label>
         <div className="flex flex-wrap gap-2">
-          {field.options?.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => onChange(opt)}
-              className={`px-4 py-2 rounded-xl text-sm border transition-all ${
-                value === opt
-                  ? "border-brown bg-brown text-cream"
-                  : "border-border bg-sand text-brown-mid hover:border-brown-mid"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
+          {field.options?.map((opt) => {
+            const label = optionLabel(opt);
+            const extra = optionExtra(opt);
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => onChange(label)}
+                className={`px-4 py-2 rounded-xl text-sm border transition-all ${
+                  value === label
+                    ? "border-brown bg-brown text-cream"
+                    : "border-border bg-sand text-brown-mid hover:border-brown-mid"
+                }`}
+              >
+                {label}
+                {extra > 0 && (
+                  <span className={`ml-1.5 text-xs ${value === label ? "text-cream/70" : "text-terracotta"}`}>
+                    +{formatPrice(extra)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -78,37 +118,31 @@ function CustomizationInput({
 
   if (field.type === "color") {
     const COLOR_MAP: Record<string, string> = {
-      // Métaux / paillettes
       "Or": "#D4AF37", "Doré": "#FFD700", "Or rose": "#E8A090",
       "Argent": "#C0C0C0", "Argenté": "#A8A8A8",
       "Bronze": "#CD7F32", "Cuivre": "#B87333",
-      // Basiques
       "Blanc": "#FFFFFF", "Crème": "#FFF8F0", "Ivoire": "#FFFFF0",
       "Noir": "#1A1A1A", "Gris": "#808080", "Gris clair": "#D3D3D3",
-      // Chauds
       "Rouge": "#E53935", "Rouge bordeaux": "#800020", "Bordeaux": "#722F37",
       "Rose": "#F4A7B9", "Rose poudré": "#F8C8D4", "Rose fuchsia": "#FF69B4",
       "Orange": "#FF8C00", "Corail": "#FF6B6B", "Saumon": "#FA8072",
       "Jaune": "#FFD600", "Jaune doré": "#F5C518",
       "Terracotta": "#C76442",
-      // Froids
       "Bleu": "#1976D2", "Bleu marine": "#002366", "Bleu ciel": "#87CEEB",
       "Bleu turquoise": "#40E0D0", "Turquoise": "#30D5C8",
       "Vert": "#2E7D32", "Vert sauge": "#8FBC8B", "Vert menthe": "#98FF98",
       "Violet": "#7B1FA2", "Mauve": "#C8A2C8", "Lilas": "#C8A2C8",
       "Lavande": "#E6E6FA",
-      // Naturels
       "Marron": "#795548", "Caramel": "#C68642", "Beige": "#F5F5DC",
       "Nude": "#E8C9A0",
     };
 
-    function resolveColor(opt: string): string {
-      if (opt.startsWith("#") || opt.startsWith("rgb")) return opt;
-      return COLOR_MAP[opt] ?? "#E0D5C8"; // fallback neutre visible
+    function resolveColor(label: string): string {
+      if (label.startsWith("#") || label.startsWith("rgb")) return label;
+      return COLOR_MAP[label] ?? "#E0D5C8";
     }
-
-    function isLight(opt: string): boolean {
-      const hex = resolveColor(opt).replace("#", "");
+    function isLight(label: string): boolean {
+      const hex = resolveColor(label).replace("#", "");
       if (hex.length < 6) return false;
       const r = parseInt(hex.slice(0, 2), 16);
       const g = parseInt(hex.slice(2, 4), 16);
@@ -121,25 +155,33 @@ function CustomizationInput({
         <label className="block text-sm font-medium text-brown-mid mb-1.5">
           {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
         </label>
-        <div className="flex flex-wrap gap-2">
-          {field.options?.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              title={opt}
-              onClick={() => onChange(opt)}
-              className={`w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center ${
-                value === opt ? "border-brown scale-110 shadow-md" : "border-border hover:border-brown-mid"
-              }`}
-              style={{ backgroundColor: resolveColor(opt) }}
-            >
-              {value === opt && (
-                <CheckCircle size={14} className={isLight(opt) ? "text-brown" : "text-white"} />
-              )}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-3">
+          {field.options?.map((opt) => {
+            const label = optionLabel(opt);
+            const extra = optionExtra(opt);
+            return (
+              <div key={opt} className="flex flex-col items-center gap-1">
+                <button
+                  type="button"
+                  title={label}
+                  onClick={() => onChange(label)}
+                  className={`w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center ${
+                    value === label ? "border-brown scale-110 shadow-md" : "border-border hover:border-brown-mid"
+                  }`}
+                  style={{ backgroundColor: resolveColor(label) }}
+                >
+                  {value === label && (
+                    <CheckCircle size={14} className={isLight(label) ? "text-brown" : "text-white"} />
+                  )}
+                </button>
+                {extra > 0 && (
+                  <span className="text-xs text-terracotta font-medium">+{formatPrice(extra)}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
-        {value && <p className="text-xs text-brown-mid mt-1.5">Sélectionné : <span className="font-medium">{value}</span></p>}
+        {value && <p className="text-xs text-brown-mid mt-2">Sélectionné : <span className="font-medium">{value}</span></p>}
       </div>
     );
   }
@@ -169,20 +211,21 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       if (!snap.empty) {
         const p = { id: snap.docs[0].id, ...snap.docs[0].data() } as Product;
         setProduct(p);
-        getDocs(
-          query(collection(db, "products"), where("category", "==", p.category), limit(5))
-        ).then((simSnap) => {
+        getDocs(query(collection(db, "products"), where("category", "==", p.category), limit(5))).then((simSnap) => {
           setSimilar(
-            simSnap.docs
-              .map((d) => ({ id: d.id, ...d.data() } as Product))
-              .filter((s) => s.id !== p.id)
-              .slice(0, 4)
+            simSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)).filter((s) => s.id !== p.id).slice(0, 4)
           );
         });
       }
       setLoading(false);
     });
   }, [slug]);
+
+  // Supplément total de personnalisation
+  const customizationExtra = product?.customizationFields
+    ? calcExtra(product.customizationFields, customization)
+    : 0;
+  const unitPrice = (product?.price ?? 0) + customizationExtra;
 
   function handleCustomizationChange(fieldId: string, value: string) {
     setCustomization((prev) => ({ ...prev, [fieldId]: value }));
@@ -191,7 +234,6 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
   function handleAddToCart() {
     if (!product) return;
 
-    // Vérifie les champs obligatoires
     const requiredFields = product.customizationFields?.filter((f) => f.required) ?? [];
     for (const field of requiredFields) {
       if (!customization[field.id]?.trim()) {
@@ -200,7 +242,6 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       }
     }
 
-    // Construit les labels lisibles pour l'affichage
     const customizationLabels: Record<string, string> = {};
     if (product.customizationFields) {
       for (const field of product.customizationFields) {
@@ -216,13 +257,15 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       cartItemId,
       productId: product.id,
       name: product.name,
-      price: product.price,
+      price: unitPrice,
+      basePrice: product.price,
       imageUrl: product.imageUrl,
       quantity: qty,
       customization: Object.keys(customization).length > 0 ? customization : undefined,
       customizationLabels: Object.keys(customizationLabels).length > 0 ? customizationLabels : undefined,
+      customizationExtra: customizationExtra > 0 ? customizationExtra : undefined,
     });
-    showToast({ message: product.name, imageUrl: product.imageUrl, price: formatPrice(product.price) });
+    showToast({ message: product.name, imageUrl: product.imageUrl, price: formatPrice(unitPrice) });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }
@@ -261,10 +304,8 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
         </Link>
 
         <div className="grid md:grid-cols-2 gap-14">
-          {/* Galerie */}
           <ImageCarousel images={gallery} alt={product.name} featured={product.featured} />
 
-          {/* Infos */}
           <div className="flex flex-col py-2">
             <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-3">
               {CATEGORY_LABELS[product.category]}
@@ -273,20 +314,28 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
               <h1 className="font-serif text-3xl font-semibold text-brown leading-tight">{product.name}</h1>
               <WishlistButton productId={product.id} size={18} className="flex-shrink-0 mt-1" />
             </div>
-            <p className="text-3xl font-semibold text-terracotta mb-6">{formatPrice(product.price)}</p>
+
+            {/* Prix — avec détail personnalisation si applicable */}
+            <div className="mb-6">
+              {customizationExtra > 0 ? (
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-3xl font-semibold text-terracotta">{formatPrice(unitPrice)}</span>
+                  <span className="text-sm text-brown-light">
+                    ({formatPrice(product.price)}
+                    <span className="text-terracotta font-medium"> +{formatPrice(customizationExtra)} perso.</span>)
+                  </span>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold text-terracotta">{formatPrice(product.price)}</p>
+              )}
+            </div>
 
             {/* Stock */}
             <div className="flex items-center gap-2 mb-6">
               {product.stock > 0 ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                  <span className="text-sm text-brown-mid">En stock ({product.stock} disponibles)</span>
-                </>
+                <><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /><span className="text-sm text-brown-mid">En stock ({product.stock} disponibles)</span></>
               ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-                  <span className="text-sm text-brown-light">Rupture de stock</span>
-                </>
+                <><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /><span className="text-sm text-brown-light">Rupture de stock</span></>
               )}
             </div>
 
@@ -313,6 +362,9 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                 <span className="px-4 text-sm font-medium text-brown">{qty}</span>
                 <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))} disabled={qty >= product.stock} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors disabled:opacity-30">+</button>
               </div>
+              {qty > 1 && (
+                <span className="text-sm text-brown-light">= <span className="font-medium text-brown">{formatPrice(unitPrice * qty)}</span></span>
+              )}
             </div>
 
             <button
@@ -322,48 +374,37 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                 added ? "bg-green-700 text-cream" : "bg-brown text-cream hover:bg-brown-mid"
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
-              {added ? <><CheckCircle size={18} /> Ajouté au panier !</> : <><ShoppingBag size={18} /> Ajouter au panier</>}
+              {added
+                ? <><CheckCircle size={18} /> Ajouté au panier !</>
+                : <><ShoppingBag size={18} /> Ajouter au panier — {formatPrice(unitPrice * qty)}</>}
             </button>
 
-            {/* Partage */}
             <div className="mb-6">
               <ShareButtons url={productUrl} title={product.name} />
             </div>
 
-            {/* Onglets */}
             {availableTabs.length > 0 && (
               <div className="border-t border-border pt-6">
                 {availableTabs.length > 1 ? (
                   <div className="flex gap-1 mb-5 bg-sand rounded-xl p-1">
                     {availableTabs.map((t) => (
-                      <button
-                        key={t.key}
-                        onClick={() => setTab(t.key)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                          tab === t.key ? "bg-cream text-brown shadow-sm" : "text-brown-light hover:text-brown"
-                        }`}
-                      >
+                      <button key={t.key} onClick={() => setTab(t.key)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.key ? "bg-cream text-brown shadow-sm" : "text-brown-light hover:text-brown"}`}>
                         {t.label}
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-3">
-                    {activeTab?.label}
-                  </p>
+                  <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-3">{activeTab?.label}</p>
                 )}
-                <p className="text-sm text-brown-light leading-relaxed">
-                  {activeTab?.content}
-                </p>
+                <p className="text-sm text-brown-light leading-relaxed">{activeTab?.content}</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Avis clients */}
         <ProductReviews productId={product.id} />
 
-        {/* Produits similaires */}
         {similar.length > 0 && (
           <div className="mt-20">
             <div className="flex items-end justify-between mb-8">
@@ -371,9 +412,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                 <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Dans la même catégorie</p>
                 <h2 className="font-serif text-2xl font-semibold text-brown">Vous aimerez aussi</h2>
               </div>
-              <Link href={`/catalogue?category=${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">
-                Voir tout →
-              </Link>
+              <Link href={`/catalogue?category=${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">Voir tout →</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
               {similar.map((p) => <ProductCard key={p.id} product={p} />)}

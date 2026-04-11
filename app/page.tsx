@@ -204,7 +204,7 @@ function HeroTile({ product }: { product: Product }) {
           <button
             onClick={(e) => {
               e.preventDefault();
-              addItem({ cartItemId: product.id, productId: product.id, name: product.name, price: product.price, imageUrl: product.imageUrl, quantity: 1 });
+              addItem({ cartItemId: product.id, productId: product.id, name: product.name, price: product.price, basePrice: product.price, imageUrl: product.imageUrl, quantity: 1 });
             }}
             className="p-1.5 bg-cream/20 hover:bg-terracotta rounded-lg transition-colors"
           >
