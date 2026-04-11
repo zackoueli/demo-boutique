@@ -253,7 +253,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
 
     const cartItemId = buildCartItemId(product.id, Object.keys(customization).length > 0 ? customization : undefined);
 
-    addItem({
+    const itemToAdd: Parameters<typeof addItem>[0] = {
       cartItemId,
       productId: product.id,
       name: product.name,
@@ -261,10 +261,11 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       basePrice: product.price,
       imageUrl: product.imageUrl,
       quantity: qty,
-      customization: Object.keys(customization).length > 0 ? customization : undefined,
-      customizationLabels: Object.keys(customizationLabels).length > 0 ? customizationLabels : undefined,
-      customizationExtra: customizationExtra > 0 ? customizationExtra : undefined,
-    });
+    };
+    if (Object.keys(customization).length > 0) itemToAdd.customization = customization;
+    if (Object.keys(customizationLabels).length > 0) itemToAdd.customizationLabels = customizationLabels;
+    if (customizationExtra > 0) itemToAdd.customizationExtra = customizationExtra;
+    addItem(itemToAdd);
     showToast({ message: product.name, imageUrl: product.imageUrl, price: formatPrice(unitPrice) });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);

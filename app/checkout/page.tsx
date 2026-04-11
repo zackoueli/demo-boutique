@@ -351,9 +351,26 @@ export default function CheckoutPage() {
             country: form.country,
           };
 
+      // Firestore rejette les valeurs undefined — on nettoie les items
+      const sanitizedItems = items.map((item) => {
+        const clean: Record<string, unknown> = {
+          cartItemId: item.cartItemId,
+          productId: item.productId,
+          name: item.name,
+          price: item.price,
+          basePrice: item.basePrice,
+          imageUrl: item.imageUrl,
+          quantity: item.quantity,
+        };
+        if (item.customization) clean.customization = item.customization;
+        if (item.customizationLabels) clean.customizationLabels = item.customizationLabels;
+        if (item.customizationExtra) clean.customizationExtra = item.customizationExtra;
+        return clean;
+      });
+
       await addDoc(collection(db, "orders"), {
         id: orderId, userId: user?.uid ?? null, userEmail: form.email,
-        status: "pending", items,
+        status: "pending", items: sanitizedItems,
         shipping: shippingData,
         payment: { last4: form.cardNumber.replace(/\s/g, "").slice(-4), method: "card" },
         subtotal: total,
