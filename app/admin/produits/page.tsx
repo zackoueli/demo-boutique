@@ -86,7 +86,9 @@ export default function AdminProduitsPage() {
         images: extraImages.length ? extraImages : [],
         materials: form.materials || "",
         careInstructions: form.careInstructions || "",
-        customizationFields: customFields.filter((f) => f.label.trim()),
+        customizationFields: customFields
+          .filter((f) => f.label.trim())
+          .map((f) => ({ ...f, options: (f.options ?? []).filter(Boolean) })),
       };
       if (editing) {
         await updateDoc(doc(db, "products", editing.id), data);
@@ -379,7 +381,7 @@ export default function AdminProduitsPage() {
                             <textarea
                               value={(field.options ?? []).join("\n")}
                               onChange={(e) => updateCustomField(field.id, {
-                                options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                                options: e.target.value.split("\n").map((s) => s.trim()),
                               })}
                               rows={3}
                               placeholder={field.type === "color"
