@@ -36,7 +36,7 @@ export default function PanierPage() {
         {/* Articles */}
         <div className="lg:col-span-2 space-y-4">
           {items.map((item) => (
-            <div key={item.productId} className="flex items-center gap-4 p-4 border border-border rounded-2xl bg-cream">
+            <div key={item.cartItemId} className="flex items-start gap-4 p-4 border border-border rounded-2xl bg-cream">
               <div className="relative w-20 h-20 bg-sand rounded-xl overflow-hidden flex-shrink-0">
                 {item.imageUrl
                   ? <Image src={item.imageUrl} alt={item.name} fill sizes="80px" className="object-cover" />
@@ -46,14 +46,23 @@ export default function PanierPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-serif font-medium text-brown truncate">{item.name}</h3>
                 <p className="text-terracotta text-sm font-semibold mt-1">{formatPrice(item.price)}</p>
+                {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {Object.entries(item.customizationLabels).map(([label, value]) => (
+                      <span key={label} className="text-xs bg-sand border border-border rounded-lg px-2 py-0.5 text-brown-mid">
+                        {label} : {value}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center border border-border rounded-xl bg-sand">
-                <button onClick={() => updateQuantity(item.productId, item.quantity - 1)} className="px-3 py-2 text-brown-light hover:text-brown transition-colors text-sm">−</button>
+              <div className="flex items-center border border-border rounded-xl bg-sand flex-shrink-0">
+                <button onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)} className="px-3 py-2 text-brown-light hover:text-brown transition-colors text-sm">−</button>
                 <span className="px-3 text-sm font-medium text-brown">{item.quantity}</span>
-                <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="px-3 py-2 text-brown-light hover:text-brown transition-colors text-sm">+</button>
+                <button onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)} className="px-3 py-2 text-brown-light hover:text-brown transition-colors text-sm">+</button>
               </div>
-              <p className="text-sm font-semibold text-brown w-20 text-right">{formatPrice(item.price * item.quantity)}</p>
-              <button onClick={() => removeItem(item.productId)} className="p-1.5 text-brown-light hover:text-terracotta transition-colors">
+              <p className="text-sm font-semibold text-brown w-20 text-right flex-shrink-0">{formatPrice(item.price * item.quantity)}</p>
+              <button onClick={() => removeItem(item.cartItemId)} className="p-1.5 text-brown-light hover:text-terracotta transition-colors flex-shrink-0">
                 <Trash2 size={15} />
               </button>
             </div>
@@ -65,7 +74,7 @@ export default function PanierPage() {
           <h2 className="font-serif font-semibold text-brown text-lg">Récapitulatif</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
-              <div key={item.productId} className="flex justify-between text-brown-light">
+              <div key={item.cartItemId} className="flex justify-between text-brown-light">
                 <span className="truncate flex-1 pr-2">{item.name} × {item.quantity}</span>
                 <span>{formatPrice(item.price * item.quantity)}</span>
               </div>

@@ -6,8 +6,8 @@ import type { CartItem } from "./types";
 interface CartContextValue {
   items: CartItem[];
   addItem: (item: CartItem) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
   total: number;
   count: number;
@@ -31,10 +31,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   function addItem(item: CartItem) {
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === item.productId);
+      const existing = prev.find((i) => i.cartItemId === item.cartItemId);
       if (existing) {
         return prev.map((i) =>
-          i.productId === item.productId
+          i.cartItemId === item.cartItemId
             ? { ...i, quantity: i.quantity + item.quantity }
             : i
         );
@@ -43,14 +43,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function removeItem(productId: string) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+  function removeItem(cartItemId: string) {
+    setItems((prev) => prev.filter((i) => i.cartItemId !== cartItemId));
   }
 
-  function updateQuantity(productId: string, quantity: number) {
-    if (quantity <= 0) return removeItem(productId);
+  function updateQuantity(cartItemId: string, quantity: number) {
+    if (quantity <= 0) return removeItem(cartItemId);
     setItems((prev) =>
-      prev.map((i) => (i.productId === productId ? { ...i, quantity } : i))
+      prev.map((i) => (i.cartItemId === cartItemId ? { ...i, quantity } : i))
     );
   }
 
@@ -74,4 +74,11 @@ export function useCart() {
   const ctx = useContext(CartContext);
   if (!ctx) throw new Error("useCart must be used inside CartProvider");
   return ctx;
+}
+
+/** Génère un cartItemId unique à partir du productId et des options de personnalisation */
+export function buildCartItemId(productId: string, customization?: Record<string, string>): string {
+  if (!customization || Object.keys(customization).length === 0) return productId;
+  const sorted = Object.keys(customization).sort().map((k) => `${k}:${customization[k]}`).join("|");
+  return `${productId}_${btoa(sorted).slice(0, 12)}`;
 }

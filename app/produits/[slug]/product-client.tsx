@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Product } from "@/lib/types";
-import { useCart } from "@/lib/cart-context";
+import type { Product, CustomizationField } from "@/lib/types";
+import { useCart, buildCartItemId } from "@/lib/cart-context";
 import { useToast } from "@/lib/toast-context";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
@@ -22,6 +22,103 @@ const CATEGORY_LABELS: Record<Product["category"], string> = {
 
 type Tab = "description" | "materials" | "care";
 
+/* ─── Rendu d'un champ de personnalisation ─── */
+function CustomizationInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: CustomizationField;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  if (field.type === "text") {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-brown-mid mb-1.5">
+          {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
+        </label>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={`Votre ${field.label.toLowerCase()}`}
+          required={field.required}
+          className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition"
+        />
+      </div>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-brown-mid mb-1.5">
+          {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {field.options?.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(opt)}
+              className={`px-4 py-2 rounded-xl text-sm border transition-all ${
+                value === opt
+                  ? "border-brown bg-brown text-cream"
+                  : "border-border bg-sand text-brown-mid hover:border-brown-mid"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (field.type === "color") {
+    // Palette de couleurs prédéfinies
+    const COLOR_MAP: Record<string, string> = {
+      "Or": "#D4AF37",
+      "Argent": "#C0C0C0",
+      "Rose": "#F4A7B9",
+      "Bronze": "#CD7F32",
+      "Blanc": "#FFFFFF",
+      "Noir": "#2C2C2C",
+      "Doré": "#FFD700",
+      "Cuivre": "#B87333",
+    };
+    return (
+      <div>
+        <label className="block text-sm font-medium text-brown-mid mb-1.5">
+          {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {field.options?.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              title={opt}
+              onClick={() => onChange(opt)}
+              className={`w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center ${
+                value === opt ? "border-brown scale-110 shadow-md" : "border-border hover:border-brown-mid"
+              }`}
+              style={{ backgroundColor: COLOR_MAP[opt] ?? opt }}
+            >
+              {value === opt && (
+                <CheckCircle size={14} className={COLOR_MAP[opt] === "#FFFFFF" ? "text-brown" : "text-white"} />
+              )}
+            </button>
+          ))}
+        </div>
+        {value && <p className="text-xs text-brown-mid mt-1.5">Sélectionné : <span className="font-medium">{value}</span></p>}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function ProductClient(props: { params: Promise<{ slug: string }> }) {
   const [slug, setSlug] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
@@ -30,6 +127,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
   const [added, setAdded] = useState(false);
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<Tab>("description");
+  const [customization, setCustomization] = useState<Record<string, string>>({});
   const { addItem } = useCart();
   const { showToast } = useToast();
 
@@ -58,9 +156,44 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
     });
   }, [slug]);
 
+  function handleCustomizationChange(fieldId: string, value: string) {
+    setCustomization((prev) => ({ ...prev, [fieldId]: value }));
+  }
+
   function handleAddToCart() {
     if (!product) return;
-    addItem({ productId: product.id, name: product.name, price: product.price, imageUrl: product.imageUrl, quantity: qty });
+
+    // Vérifie les champs obligatoires
+    const requiredFields = product.customizationFields?.filter((f) => f.required) ?? [];
+    for (const field of requiredFields) {
+      if (!customization[field.id]?.trim()) {
+        showToast({ message: `Veuillez renseigner : ${field.label}` });
+        return;
+      }
+    }
+
+    // Construit les labels lisibles pour l'affichage
+    const customizationLabels: Record<string, string> = {};
+    if (product.customizationFields) {
+      for (const field of product.customizationFields) {
+        if (customization[field.id]) {
+          customizationLabels[field.label] = customization[field.id];
+        }
+      }
+    }
+
+    const cartItemId = buildCartItemId(product.id, Object.keys(customization).length > 0 ? customization : undefined);
+
+    addItem({
+      cartItemId,
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      quantity: qty,
+      customization: Object.keys(customization).length > 0 ? customization : undefined,
+      customizationLabels: Object.keys(customizationLabels).length > 0 ? customizationLabels : undefined,
+    });
     showToast({ message: product.name, imageUrl: product.imageUrl, price: formatPrice(product.price) });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -128,6 +261,21 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                 </>
               )}
             </div>
+
+            {/* Personnalisation */}
+            {product.customizationFields && product.customizationFields.length > 0 && (
+              <div className="mb-6 p-4 bg-sand border border-border rounded-2xl space-y-4">
+                <p className="text-xs font-semibold text-brown uppercase tracking-widest">Personnalisation</p>
+                {product.customizationFields.map((field) => (
+                  <CustomizationInput
+                    key={field.id}
+                    field={field}
+                    value={customization[field.id] ?? ""}
+                    onChange={(v) => handleCustomizationChange(field.id, v)}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Quantité */}
             <div className="flex items-center gap-4 mb-6">

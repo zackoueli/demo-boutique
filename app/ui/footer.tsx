@@ -24,6 +24,8 @@ export default function Footer() {
           <ul className="space-y-2 text-sm text-brown-light">
             <li><Link href="/compte" className="hover:text-terracotta transition-colors">Mon compte</Link></li>
             <li><Link href="/panier" className="hover:text-terracotta transition-colors">Mon panier</Link></li>
+            <li><Link href="/messages" className="hover:text-terracotta transition-colors">Mes messages</Link></li>
+            <li><Link href="/contact" className="hover:text-terracotta transition-colors">Nous contacter</Link></li>
           </ul>
         </div>
       </div>

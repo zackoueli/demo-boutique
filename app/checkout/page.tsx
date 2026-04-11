@@ -7,8 +7,22 @@ import { db } from "@/lib/firebase";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { formatPrice, generateOrderId } from "@/lib/utils";
+import type { RelayPoint } from "@/lib/types";
 import Link from "next/link";
-import { ArrowLeft, Lock, MapPin, Tag, X, Check } from "lucide-react";
+import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store } from "lucide-react";
+
+/* ─── Points relais démo ─── */
+const RELAY_POINTS: RelayPoint[] = [
+  { id: "R001", name: "Tabac Presse Central", address: "12 rue de la Paix", city: "Paris", postalCode: "75001", distance: "0.3 km" },
+  { id: "R002", name: "Épicerie du Marché", address: "45 avenue Victor Hugo", city: "Paris", postalCode: "75016", distance: "0.8 km" },
+  { id: "R003", name: "Librairie Papeterie Moderne", address: "8 boulevard Haussmann", city: "Paris", postalCode: "75009", distance: "1.2 km" },
+  { id: "R004", name: "Pressing Express", address: "23 rue du Faubourg Saint-Antoine", city: "Paris", postalCode: "75011", distance: "1.5 km" },
+  { id: "R005", name: "Supérette Point Vert", address: "67 avenue de la République", city: "Paris", postalCode: "75011", distance: "1.9 km" },
+  { id: "R006", name: "Pharmacie des Lilas", address: "14 rue des Lilas", city: "Vincennes", postalCode: "94300", distance: "2.4 km" },
+];
+
+const HOME_SHIPPING_COST = 0; // livraison à domicile offerte (démo)
+const RELAY_SHIPPING_COST = 0; // point relais offert (démo)
 
 /* ─── Types API Adresse ─── */
 interface BanFeature {
@@ -141,6 +155,8 @@ export default function CheckoutPage() {
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<"home" | "relay">("home");
+  const [selectedRelay, setSelectedRelay] = useState<RelayPoint | null>(null);
   const [form, setForm] = useState({
     fullName: profile?.displayName ?? "",
     email: user?.email ?? "",
@@ -153,7 +169,8 @@ export default function CheckoutPage() {
       ? Math.round(total * promoResult.value / 100)
       : Math.min(total, promoResult.value)
     : 0;
-  const finalTotal = Math.max(0, total - discount);
+  const shippingCost = deliveryType === "relay" ? RELAY_SHIPPING_COST : HOME_SHIPPING_COST;
+  const finalTotal = Math.max(0, total - discount + shippingCost);
 
   async function applyPromo() {
     if (!promoCode.trim()) return;
@@ -189,21 +206,45 @@ export default function CheckoutPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (items.length === 0) return;
+    if (deliveryType === "relay" && !selectedRelay) {
+      setError("Veuillez sélectionner un point relais.");
+      return;
+    }
     setLoading(true); setError("");
     try {
       const orderId = generateOrderId();
+
+      const shippingData = deliveryType === "relay"
+        ? {
+            type: "relay" as const,
+            fullName: form.fullName,
+            address: selectedRelay!.address,
+            city: selectedRelay!.city,
+            postalCode: selectedRelay!.postalCode,
+            country: "France",
+            relayPoint: selectedRelay,
+          }
+        : {
+            type: "home" as const,
+            fullName: form.fullName,
+            address: form.address,
+            city: form.city,
+            postalCode: form.postalCode,
+            country: form.country,
+          };
+
       await addDoc(collection(db, "orders"), {
         id: orderId, userId: user?.uid ?? null, userEmail: form.email,
         status: "pending", items,
-        shipping: { fullName: form.fullName, address: form.address, city: form.city, postalCode: form.postalCode, country: form.country },
+        shipping: shippingData,
         payment: { last4: form.cardNumber.replace(/\s/g, "").slice(-4), method: "card" },
         subtotal: total,
         discount,
         promoCode: promoResult?.code ?? null,
+        shippingCost,
         total: finalTotal,
         createdAt: serverTimestamp(),
       });
-      // Incrémenter le compteur d'utilisation du code promo
       if (promoResult) {
         await updateDoc(doc(db, "promoCodes", promoResult.id), { usageCount: (promoResult as { usageCount?: number }).usageCount ?? 0 + 1 });
       }
@@ -251,24 +292,116 @@ export default function CheckoutPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-10 grid lg:grid-cols-3 gap-10">
         <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-8">
+
+          {/* ─── Mode de livraison ─── */}
           <section>
-            <h2 className="font-serif font-semibold text-brown text-lg mb-5">Livraison</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-              <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-              <div className="sm:col-span-2">
-                <AddressAutocomplete
-                  value={form.address}
-                  onChange={(v) => setForm((f) => ({ ...f, address: v }))}
-                  onSelect={handleAddressSelect}
-                />
-              </div>
-              <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
-              <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
-              <div className="sm:col-span-2"><Field label="Pays" name="country" value={form.country} onChange={handleChange} required /></div>
+            <h2 className="font-serif font-semibold text-brown text-lg mb-5 flex items-center gap-2">
+              <Package size={16} className="text-brown-light" /> Mode de livraison
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeliveryType("home")}
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                  deliveryType === "home"
+                    ? "border-brown bg-sand"
+                    : "border-border bg-cream hover:border-brown-mid"
+                }`}
+              >
+                <Home size={18} className={deliveryType === "home" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
+                <div>
+                  <p className={`font-medium text-sm ${deliveryType === "home" ? "text-brown" : "text-brown-mid"}`}>
+                    Livraison à domicile
+                  </p>
+                  <p className="text-xs text-brown-light mt-0.5">3-5 jours ouvrés · Offert</p>
+                </div>
+                {deliveryType === "home" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeliveryType("relay")}
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                  deliveryType === "relay"
+                    ? "border-brown bg-sand"
+                    : "border-border bg-cream hover:border-brown-mid"
+                }`}
+              >
+                <Store size={18} className={deliveryType === "relay" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
+                <div>
+                  <p className={`font-medium text-sm ${deliveryType === "relay" ? "text-brown" : "text-brown-mid"}`}>
+                    Point relais
+                  </p>
+                  <p className="text-xs text-brown-light mt-0.5">2-4 jours ouvrés · Offert</p>
+                </div>
+                {deliveryType === "relay" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
+              </button>
             </div>
           </section>
 
+          {/* ─── Adresse / Point relais ─── */}
+          <section>
+            {deliveryType === "home" ? (
+              <>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-5">Adresse de livraison</h2>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                  <div className="sm:col-span-2">
+                    <AddressAutocomplete
+                      value={form.address}
+                      onChange={(v) => setForm((f) => ({ ...f, address: v }))}
+                      onSelect={handleAddressSelect}
+                    />
+                  </div>
+                  <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
+                  <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
+                  <div className="sm:col-span-2"><Field label="Pays" name="country" value={form.country} onChange={handleChange} required /></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-2">Choisir un point relais</h2>
+                <p className="text-xs text-brown-light mb-5">Points relais disponibles près de chez vous (démo)</p>
+                <div className="grid sm:grid-cols-2 gap-2 mb-5">
+                  <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                </div>
+                <div className="space-y-2">
+                  {RELAY_POINTS.map((relay) => (
+                    <button
+                      key={relay.id}
+                      type="button"
+                      onClick={() => setSelectedRelay(relay)}
+                      className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                        selectedRelay?.id === relay.id
+                          ? "border-brown bg-sand"
+                          : "border-border bg-cream hover:border-brown-mid"
+                      }`}
+                    >
+                      <Store size={16} className={`flex-shrink-0 mt-0.5 ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-light"}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-medium text-sm ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-mid"}`}>
+                          {relay.name}
+                        </p>
+                        <p className="text-xs text-brown-light mt-0.5">{relay.address}, {relay.postalCode} {relay.city}</p>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        {relay.distance && (
+                          <span className="text-xs text-brown-light bg-sand border border-border rounded-lg px-2 py-0.5">
+                            {relay.distance}
+                          </span>
+                        )}
+                        {selectedRelay?.id === relay.id && <Check size={15} className="text-brown" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ─── Paiement ─── */}
           <section>
             <h2 className="font-serif font-semibold text-brown text-lg mb-1 flex items-center gap-2">
               <Lock size={15} className="text-brown-light" /> Paiement
@@ -292,13 +425,25 @@ export default function CheckoutPage() {
           </button>
         </form>
 
+        {/* ─── Récapitulatif ─── */}
         <div className="bg-sand border border-border rounded-2xl p-6 h-fit space-y-5">
           <h2 className="font-serif font-semibold text-brown">Votre commande</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
-              <div key={item.productId} className="flex justify-between text-brown-light">
-                <span className="truncate flex-1 pr-2">{item.name} × {item.quantity}</span>
-                <span>{formatPrice(item.price * item.quantity)}</span>
+              <div key={item.cartItemId} className="text-brown-light">
+                <div className="flex justify-between">
+                  <span className="truncate flex-1 pr-2">{item.name} × {item.quantity}</span>
+                  <span>{formatPrice(item.price * item.quantity)}</span>
+                </div>
+                {item.customizationLabels && Object.keys(item.customizationLabels).length > 0 && (
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {Object.entries(item.customizationLabels).map(([label, value]) => (
+                      <span key={label} className="text-xs bg-cream border border-border rounded px-1.5 py-0.5">
+                        {label} : {value}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -349,11 +494,30 @@ export default function CheckoutPage() {
                 <span>−{formatPrice(discount)}</span>
               </div>
             )}
+            <div className="flex justify-between text-sm text-brown-light">
+              <span>Livraison</span>
+              <span className="text-green-700 font-medium">Offerte</span>
+            </div>
             <div className="flex justify-between font-semibold text-brown pt-1 border-t border-border">
               <span>Total</span>
               <span className="text-terracotta text-lg">{formatPrice(finalTotal)}</span>
             </div>
           </div>
+
+          {/* Récapitulatif livraison */}
+          {deliveryType === "relay" && selectedRelay && (
+            <div className="border-t border-border pt-4">
+              <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-2">Point relais</p>
+              <div className="flex items-start gap-2 text-xs text-brown-light">
+                <Store size={12} className="flex-shrink-0 mt-0.5 text-terracotta" />
+                <div>
+                  <p className="font-medium text-brown-mid">{selectedRelay.name}</p>
+                  <p>{selectedRelay.address}</p>
+                  <p>{selectedRelay.postalCode} {selectedRelay.city}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

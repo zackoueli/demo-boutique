@@ -6,10 +6,10 @@ import {
   doc, serverTimestamp, orderBy, query,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Product } from "@/lib/types";
+import type { Product, CustomizationField } from "@/lib/types";
 import { formatPrice, slugify } from "@/lib/utils";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, X, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ImageIcon, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 
 const EMPTY_FORM = {
   name: "", description: "", price: "",
@@ -17,6 +17,13 @@ const EMPTY_FORM = {
   stock: "", featured: false,
   imageUrl: "", images: "",
   materials: "", careInstructions: "",
+};
+
+const EMPTY_CUSTOM_FIELD: Omit<CustomizationField, "id"> = {
+  type: "text",
+  label: "",
+  options: [],
+  required: false,
 };
 
 const inputCls = "w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition";
@@ -27,6 +34,8 @@ export default function AdminProduitsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [customFields, setCustomFields] = useState<CustomizationField[]>([]);
+  const [showCustomSection, setShowCustomSection] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -40,7 +49,11 @@ export default function AdminProduitsPage() {
   useEffect(() => { load(); }, []);
 
   function openCreate() {
-    setEditing(null); setForm(EMPTY_FORM); setShowModal(true);
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setCustomFields([]);
+    setShowCustomSection(false);
+    setShowModal(true);
   }
 
   function openEdit(p: Product) {
@@ -51,6 +64,8 @@ export default function AdminProduitsPage() {
       imageUrl: p.imageUrl, images: (p.images ?? []).join("\n"),
       materials: p.materials ?? "", careInstructions: p.careInstructions ?? "",
     });
+    setCustomFields(p.customizationFields ?? []);
+    setShowCustomSection((p.customizationFields ?? []).length > 0);
     setShowModal(true);
   }
 
@@ -71,6 +86,7 @@ export default function AdminProduitsPage() {
         images: extraImages.length ? extraImages : [],
         materials: form.materials || "",
         careInstructions: form.careInstructions || "",
+        customizationFields: customFields.filter((f) => f.label.trim()),
       };
       if (editing) {
         await updateDoc(doc(db, "products", editing.id), data);
@@ -87,6 +103,25 @@ export default function AdminProduitsPage() {
     if (!confirm(`Supprimer "${p.name}" ?`)) return;
     await deleteDoc(doc(db, "products", p.id));
     load();
+  }
+
+  function addCustomField() {
+    const newField: CustomizationField = {
+      id: `field_${Date.now()}`,
+      ...EMPTY_CUSTOM_FIELD,
+      options: [],
+    };
+    setCustomFields((prev) => [...prev, newField]);
+  }
+
+  function updateCustomField(id: string, updates: Partial<CustomizationField>) {
+    setCustomFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f))
+    );
+  }
+
+  function removeCustomField(id: string) {
+    setCustomFields((prev) => prev.filter((f) => f.id !== id));
   }
 
   return (
@@ -121,6 +156,7 @@ export default function AdminProduitsPage() {
                 <th className="px-4 py-3 text-right">Prix</th>
                 <th className="px-4 py-3 text-right">Stock</th>
                 <th className="px-4 py-3 text-center">Vedette</th>
+                <th className="px-4 py-3 text-center">Perso.</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -145,6 +181,15 @@ export default function AdminProduitsPage() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={p.featured ? "text-terracotta" : "text-border"}>★</span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {(p.customizationFields ?? []).length > 0 ? (
+                      <span className="text-xs bg-terracotta/10 text-terracotta px-2 py-0.5 rounded-lg">
+                        {p.customizationFields!.length} champ{p.customizationFields!.length > 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-brown-light text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
@@ -257,6 +302,117 @@ export default function AdminProduitsPage() {
                 <input type="checkbox" checked={form.featured} onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))} className="w-4 h-4 rounded accent-terracotta" />
                 <span className="text-sm font-medium text-brown-mid">Mettre en vedette (homepage)</span>
               </label>
+
+              {/* ─── Section personnalisation ─── */}
+              <div className="border border-border rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomSection((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-sand hover:bg-parchment transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Wand2 size={14} className="text-terracotta" />
+                    <span className="text-sm font-semibold text-brown">
+                      Personnalisation
+                      {customFields.length > 0 && (
+                        <span className="ml-2 text-xs font-normal text-terracotta">
+                          ({customFields.length} champ{customFields.length > 1 ? "s" : ""})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {showCustomSection ? <ChevronUp size={15} className="text-brown-light" /> : <ChevronDown size={15} className="text-brown-light" />}
+                </button>
+
+                {showCustomSection && (
+                  <div className="p-4 space-y-4">
+                    <p className="text-xs text-brown-light">
+                      Ajoutez des options de personnalisation (couleur, taille de paillettes, prénom…) que le client devra renseigner avant d&apos;ajouter au panier.
+                    </p>
+
+                    {customFields.map((field, idx) => (
+                      <div key={field.id} className="bg-sand border border-border rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-brown-mid">Champ {idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeCustomField(field.id)}
+                            className="p-1 text-brown-light hover:text-terracotta transition-colors"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-brown-mid mb-1">Libellé *</label>
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
+                              placeholder="Ex : Prénom, Couleur…"
+                              className={inputCls + " text-xs py-2"}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-brown-mid mb-1">Type</label>
+                            <select
+                              value={field.type}
+                              onChange={(e) => updateCustomField(field.id, {
+                                type: e.target.value as CustomizationField["type"],
+                                options: e.target.value === "text" ? [] : field.options,
+                              })}
+                              className={inputCls + " text-xs py-2"}
+                            >
+                              <option value="text">Texte libre</option>
+                              <option value="select">Liste d&apos;options</option>
+                              <option value="color">Palette de couleurs</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {(field.type === "select" || field.type === "color") && (
+                          <div>
+                            <label className="block text-xs font-medium text-brown-mid mb-1">
+                              Options <span className="text-brown-light font-normal">(une par ligne)</span>
+                            </label>
+                            <textarea
+                              value={(field.options ?? []).join("\n")}
+                              onChange={(e) => updateCustomField(field.id, {
+                                options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                              })}
+                              rows={3}
+                              placeholder={field.type === "color"
+                                ? "Or\nArgent\nRose\nBronze"
+                                : "Petite\nMoyenne\nGrande"
+                              }
+                              className={inputCls + " resize-none text-xs py-2"}
+                            />
+                          </div>
+                        )}
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={(e) => updateCustomField(field.id, { required: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded accent-terracotta"
+                          />
+                          <span className="text-xs text-brown-mid">Champ obligatoire</span>
+                        </label>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addCustomField}
+                      className="flex items-center gap-2 w-full py-2.5 border border-dashed border-border rounded-xl text-xs text-brown-light hover:text-brown hover:border-brown-light transition-colors justify-center"
+                    >
+                      <Plus size={13} /> Ajouter un champ
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}

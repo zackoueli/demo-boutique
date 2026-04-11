@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
-import { ShoppingBag, User, LogOut, Shield, Heart } from "lucide-react";
+import { ShoppingBag, User, LogOut, Shield, Heart, MessageSquare } from "lucide-react";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useState } from "react";
 import SearchBar from "./search-bar";
@@ -25,6 +25,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8 text-sm text-brown-mid">
           <Link href="/" className="hover:text-brown transition-colors">Accueil</Link>
           <Link href="/catalogue" className="hover:text-brown transition-colors">Catalogue</Link>
+          <Link href="/contact" className="hover:text-brown transition-colors">Contact</Link>
           {isAdmin && (
             <Link href="/admin" className="flex items-center gap-1 text-terracotta hover:text-terra-light transition-colors">
               <Shield size={13} />
@@ -74,6 +75,13 @@ export default function Navbar() {
                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-brown-mid hover:bg-sand hover:text-brown transition-colors"
                   >
                     <User size={14} /> Mon compte
+                  </Link>
+                  <Link
+                    href="/messages"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-brown-mid hover:bg-sand hover:text-brown transition-colors"
+                  >
+                    <MessageSquare size={14} /> Mes messages
                   </Link>
                   {isAdmin && (
                     <Link

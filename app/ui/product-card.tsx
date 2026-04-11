@@ -23,6 +23,7 @@ export default function ProductCard({ product }: { product: Product }) {
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
     addItem({
+      cartItemId: product.id,
       productId: product.id,
       name: product.name,
       price: product.price,
