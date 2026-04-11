@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(powershell.exe -Command \"gh auth status\")",
+      "Bash(powershell.exe -Command \"& 'C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe' repo create demo-boutique --public --source=. --remote=origin --push 2>&1\")"
+    ]
+  }
+}

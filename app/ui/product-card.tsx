@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/lib/toast-context";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/lib/types";
+import WishlistButton from "./wishlist-button";
 
 const CATEGORY_LABELS: Record<Product["category"], string> = {
   rings: "Bague",
@@ -66,6 +67,9 @@ export default function ProductCard({ product }: { product: Product }) {
             Coup de cœur
           </span>
         )}
+        <div className="absolute top-3 right-3">
+          <WishlistButton productId={product.id} size={13} />
+        </div>
       </div>
 
       <div className="p-4 flex flex-col flex-1">

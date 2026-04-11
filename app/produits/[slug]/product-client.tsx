@@ -12,6 +12,9 @@ import { ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react";
 import { ProductDetailSkeleton, ProductGridSkeleton } from "@/app/ui/skeletons";
 import ImageCarousel from "@/app/ui/image-carousel";
 import ProductCard from "@/app/ui/product-card";
+import ProductReviews from "@/app/ui/product-reviews";
+import WishlistButton from "@/app/ui/wishlist-button";
+import ShareButtons from "@/app/ui/share-buttons";
 
 const CATEGORY_LABELS: Record<Product["category"], string> = {
   rings: "Bague", necklaces: "Collier", bracelets: "Bracelet", earrings: "Boucles d'oreilles",
@@ -40,7 +43,6 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       if (!snap.empty) {
         const p = { id: snap.docs[0].id, ...snap.docs[0].data() } as Product;
         setProduct(p);
-        // Produits similaires
         getDocs(
           query(collection(db, "products"), where("category", "==", p.category), limit(5))
         ).then((simSnap) => {
@@ -79,17 +81,15 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
     );
   }
 
-  // Construire la galerie : images[] en priorité, sinon imageUrl seul
   const gallery = product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [];
+  const productUrl = typeof window !== "undefined" ? window.location.href : `https://demo.breizhapp.tech/produits/${product.slug}`;
 
-  // Onglets disponibles
   const tabs: { key: Tab; label: string; content: string | undefined }[] = [
     { key: "description", label: "Description", content: product.description },
     { key: "materials", label: "Matériaux", content: product.materials },
     { key: "care", label: "Entretien", content: product.careInstructions },
   ];
   const availableTabs = tabs.filter((t) => t.content);
-  // Si l'onglet actif n'a pas de contenu, retomber sur le premier disponible
   const activeTab = availableTabs.find((t) => t.key === tab) ?? availableTabs[0];
 
   return (
@@ -108,7 +108,10 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
             <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-3">
               {CATEGORY_LABELS[product.category]}
             </p>
-            <h1 className="font-serif text-3xl font-semibold text-brown mb-4 leading-tight">{product.name}</h1>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h1 className="font-serif text-3xl font-semibold text-brown leading-tight">{product.name}</h1>
+              <WishlistButton productId={product.id} size={18} className="flex-shrink-0 mt-1" />
+            </div>
             <p className="text-3xl font-semibold text-terracotta mb-6">{formatPrice(product.price)}</p>
 
             {/* Stock */}
@@ -139,12 +142,17 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
             <button
               onClick={handleAddToCart}
               disabled={product.stock === 0}
-              className={`flex items-center justify-center gap-2.5 py-4 px-8 rounded-2xl font-medium text-sm transition-all mb-8 ${
+              className={`flex items-center justify-center gap-2.5 py-4 px-8 rounded-2xl font-medium text-sm transition-all mb-6 ${
                 added ? "bg-green-700 text-cream" : "bg-brown text-cream hover:bg-brown-mid"
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               {added ? <><CheckCircle size={18} /> Ajouté au panier !</> : <><ShoppingBag size={18} /> Ajouter au panier</>}
             </button>
+
+            {/* Partage */}
+            <div className="mb-6">
+              <ShareButtons url={productUrl} title={product.name} />
+            </div>
 
             {/* Onglets */}
             {availableTabs.length > 0 && (
@@ -172,14 +180,15 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
           </div>
         </div>
 
+        {/* Avis clients */}
+        <ProductReviews productId={product.id} />
+
         {/* Produits similaires */}
         {similar.length > 0 && (
           <div className="mt-20">
             <div className="flex items-end justify-between mb-8">
               <div>
-                <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">
-                  Dans la même catégorie
-                </p>
+                <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Dans la même catégorie</p>
                 <h2 className="font-serif text-2xl font-semibold text-brown">Vous aimerez aussi</h2>
               </div>
               <Link href={`/catalogue?category=${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
-import { ShoppingBag, User, LogOut, Shield } from "lucide-react";
+import { ShoppingBag, User, LogOut, Shield, Heart } from "lucide-react";
+import { useWishlist } from "@/lib/wishlist-context";
 import { useState } from "react";
 import SearchBar from "./search-bar";
 
 export default function Navbar() {
   const { count } = useCart();
+  const { count: wishCount } = useWishlist();
   const { user, profile, logOut, isAdmin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -33,6 +35,14 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <SearchBar />
+          <Link href="/souhaits" className="relative p-2.5 rounded-full hover:bg-sand transition-colors" aria-label="Mes favoris">
+            <Heart size={19} className="text-brown-mid" />
+            {wishCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-terracotta text-cream text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                {wishCount}
+              </span>
+            )}
+          </Link>
           <Link
             href="/panier"
             className="relative p-2.5 rounded-full hover:bg-sand transition-colors"

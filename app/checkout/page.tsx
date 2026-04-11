@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { formatPrice, generateOrderId } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Lock, MapPin, Tag, X, Check } from "lucide-react";
 
 /* ─── Types API Adresse ─── */
 interface BanFeature {
@@ -122,6 +122,14 @@ function AddressAutocomplete({
   );
 }
 
+interface PromoResult {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  minOrder: number;
+}
+
 /* ─── Page checkout ─── */
 export default function CheckoutPage() {
   const router = useRouter();
@@ -129,12 +137,46 @@ export default function CheckoutPage() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const [promoError, setPromoError] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
   const [form, setForm] = useState({
     fullName: profile?.displayName ?? "",
     email: user?.email ?? "",
     address: "", city: "", postalCode: "", country: "France",
     cardNumber: "", cardExpiry: "", cardCvc: "",
   });
+
+  const discount = promoResult
+    ? promoResult.type === "percent"
+      ? Math.round(total * promoResult.value / 100)
+      : Math.min(total, promoResult.value)
+    : 0;
+  const finalTotal = Math.max(0, total - discount);
+
+  async function applyPromo() {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true); setPromoError(""); setPromoResult(null);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "promoCodes"),
+          where("code", "==", promoCode.toUpperCase().trim()),
+          where("active", "==", true))
+      );
+      if (snap.empty) { setPromoError("Code invalide ou expiré."); return; }
+      const data = snap.docs[0].data() as Omit<PromoResult, "id">;
+      if (data.minOrder > 0 && total < data.minOrder) {
+        setPromoError(`Commande minimum de ${(data.minOrder / 100).toFixed(0)} € requise.`);
+        return;
+      }
+      setPromoResult({ id: snap.docs[0].id, ...data });
+    } catch {
+      setPromoError("Erreur lors de la vérification.");
+    } finally {
+      setPromoLoading(false);
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -155,8 +197,16 @@ export default function CheckoutPage() {
         status: "pending", items,
         shipping: { fullName: form.fullName, address: form.address, city: form.city, postalCode: form.postalCode, country: form.country },
         payment: { last4: form.cardNumber.replace(/\s/g, "").slice(-4), method: "card" },
-        subtotal: total, total, createdAt: serverTimestamp(),
+        subtotal: total,
+        discount,
+        promoCode: promoResult?.code ?? null,
+        total: finalTotal,
+        createdAt: serverTimestamp(),
       });
+      // Incrémenter le compteur d'utilisation du code promo
+      if (promoResult) {
+        await updateDoc(doc(db, "promoCodes", promoResult.id), { usageCount: (promoResult as { usageCount?: number }).usageCount ?? 0 + 1 });
+      }
       await Promise.all(
         items.map(async (item) => {
           const productRef = doc(db, "products", item.productId);
@@ -238,7 +288,7 @@ export default function CheckoutPage() {
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
 
           <button type="submit" disabled={loading} className="w-full py-4 bg-brown text-cream font-medium rounded-2xl hover:bg-brown-mid transition-colors disabled:opacity-50 text-sm">
-            {loading ? "Traitement en cours…" : `Payer ${formatPrice(total)}`}
+            {loading ? "Traitement en cours…" : `Payer ${formatPrice(finalTotal)}`}
           </button>
         </form>
 
@@ -252,9 +302,57 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-          <div className="border-t border-border pt-4 flex justify-between font-semibold text-brown">
-            <span>Total</span>
-            <span className="text-terracotta text-lg">{formatPrice(total)}</span>
+
+          {/* Code promo */}
+          <div className="border-t border-border pt-4 space-y-2">
+            {promoResult ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <Check size={14} />
+                  <span className="font-mono font-semibold">{promoResult.code}</span>
+                  <span>−{promoResult.type === "percent" ? `${promoResult.value}%` : formatPrice(promoResult.value)}</span>
+                </div>
+                <button onClick={() => { setPromoResult(null); setPromoCode(""); }} className="text-green-600 hover:text-green-800">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Tag size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-brown-light" />
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyPromo())}
+                    placeholder="Code promo"
+                    className="w-full pl-8 pr-3 py-2.5 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition font-mono uppercase"
+                  />
+                </div>
+                <button type="button" onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
+                  className="px-4 py-2.5 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors disabled:opacity-40">
+                  {promoLoading ? "…" : "OK"}
+                </button>
+              </div>
+            )}
+            {promoError && <p className="text-xs text-red-600">{promoError}</p>}
+          </div>
+
+          <div className="border-t border-border pt-4 space-y-2">
+            <div className="flex justify-between text-sm text-brown-light">
+              <span>Sous-total</span>
+              <span>{formatPrice(total)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-sm text-green-700 font-medium">
+                <span>Réduction</span>
+                <span>−{formatPrice(discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold text-brown pt-1 border-t border-border">
+              <span>Total</span>
+              <span className="text-terracotta text-lg">{formatPrice(finalTotal)}</span>
+            </div>
           </div>
         </div>
       </div>
