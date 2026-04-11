@@ -42,6 +42,7 @@ export interface RelayPoint {
   city: string;
   postalCode: string;
   distance?: string;
+  hours?: string;
 }
 
 export interface Order {

@@ -9,27 +9,97 @@ import { useAuth } from "@/lib/auth-context";
 import { formatPrice, generateOrderId } from "@/lib/utils";
 import type { RelayPoint } from "@/lib/types";
 import Link from "next/link";
-import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store } from "lucide-react";
+import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store, Search, Clock } from "lucide-react";
 
-/* ─── Points relais démo ─── */
-const RELAY_POINTS: RelayPoint[] = [
-  { id: "R001", name: "Tabac Presse Central", address: "12 rue de la Paix", city: "Paris", postalCode: "75001", distance: "0.3 km" },
-  { id: "R002", name: "Épicerie du Marché", address: "45 avenue Victor Hugo", city: "Paris", postalCode: "75016", distance: "0.8 km" },
-  { id: "R003", name: "Librairie Papeterie Moderne", address: "8 boulevard Haussmann", city: "Paris", postalCode: "75009", distance: "1.2 km" },
-  { id: "R004", name: "Pressing Express", address: "23 rue du Faubourg Saint-Antoine", city: "Paris", postalCode: "75011", distance: "1.5 km" },
-  { id: "R005", name: "Supérette Point Vert", address: "67 avenue de la République", city: "Paris", postalCode: "75011", distance: "1.9 km" },
-  { id: "R006", name: "Pharmacie des Lilas", address: "14 rue des Lilas", city: "Vincennes", postalCode: "94300", distance: "2.4 km" },
+/* ─── Transporteurs disponibles ─── */
+const CARRIERS = [
+  {
+    id: "mondial-relay",
+    name: "Mondial Relay",
+    abbr: "MR",
+    bgColor: "#E30613",
+    desc: "2–4 jours ouvrés",
+    price: 0,
+  },
+  {
+    id: "colissimo",
+    name: "Colissimo",
+    abbr: "COL",
+    bgColor: "#FFCD00",
+    textColor: "#003189",
+    desc: "2–3 jours ouvrés",
+    price: 0,
+  },
+  {
+    id: "chronopost",
+    name: "Chronopost",
+    abbr: "CHR",
+    bgColor: "#003189",
+    desc: "1–2 jours ouvrés",
+    price: 199,
+  },
+  {
+    id: "dpd",
+    name: "DPD",
+    abbr: "DPD",
+    bgColor: "#DC0032",
+    desc: "2–3 jours ouvrés",
+    price: 0,
+  },
 ];
 
-const HOME_SHIPPING_COST = 0; // livraison à domicile offerte (démo)
-const RELAY_SHIPPING_COST = 0; // point relais offert (démo)
+/* ─── Génération dynamique de points relais ─── */
+const SHOP_TYPES = [
+  "Tabac Presse", "Épicerie Fine", "Pharmacie", "Librairie Papeterie",
+  "Pressing Express", "Supérette", "Bureau de Tabac", "Boulangerie",
+  "Droguerie", "Fleuriste", "Opticien", "Cordonnerie",
+];
+const STREET_TYPES = [
+  "rue", "avenue", "boulevard", "impasse", "allée", "place", "chemin",
+];
+const STREET_NAMES = [
+  "de la République", "Victor Hugo", "du Général de Gaulle", "Jean Jaurès",
+  "de la Liberté", "du Marché", "des Fleurs", "Nationale", "Gambetta",
+  "Foch", "Pasteur", "de la Gare", "du Commerce", "des Écoles",
+];
+const HOURS = [
+  "Lun–Sam 7h–20h", "Lun–Ven 8h–19h, Sam 9h–18h",
+  "Lun–Sam 8h–21h, Dim 9h–13h", "Lun–Ven 9h–18h30",
+  "7j/7 8h–22h", "Lun–Sam 9h–19h30",
+];
+
+function generateRelayPoints(city: string, postalCode: string, carrier: string): RelayPoint[] {
+  // Seed déterministe basé sur le code postal pour des résultats cohérents
+  const seed = postalCode.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const carrierSeed = carrier.length;
+
+  return Array.from({ length: 6 }, (_, i) => {
+    const s = (seed + i * 37 + carrierSeed * 13) % 1000;
+    const shopType = SHOP_TYPES[(s + i * 7) % SHOP_TYPES.length];
+    const streetNum = ((s * (i + 1)) % 120) + 1;
+    const streetType = STREET_TYPES[(s + i) % STREET_TYPES.length];
+    const streetName = STREET_NAMES[(s * 3 + i * 11) % STREET_NAMES.length];
+    const dist = ((s % 18) + i * 3 + 1) / 10;
+    const hours = HOURS[(s + i * 3) % HOURS.length];
+    // Variation légère du CP pour les résultats distants
+    const cpSuffix = i < 3 ? postalCode : String(parseInt(postalCode) + (i % 2 === 0 ? 1 : -1)).padStart(5, "0");
+
+    return {
+      id: `${carrier}-${postalCode}-${i}`,
+      name: `${shopType} ${city.split(" ")[0]}`,
+      address: `${streetNum} ${streetType} ${streetName}`,
+      city,
+      postalCode: cpSuffix,
+      distance: `${dist.toFixed(1)} km`,
+      hours,
+    };
+  });
+}
 
 /* ─── Types API Adresse ─── */
 interface BanFeature {
   properties: {
     label: string;
-    housenumber?: string;
-    street?: string;
     name: string;
     postcode: string;
     city: string;
@@ -76,20 +146,11 @@ function AddressAutocomplete({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-
-  function handleSelect(feature: BanFeature) {
-    const { name, postcode, city } = feature.properties;
-    onSelect(name, city, postcode);
-    setSuggestions([]);
-    setOpen(false);
-  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -108,18 +169,16 @@ function AddressAutocomplete({
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           {loading
             ? <div className="w-4 h-4 border-2 border-brown-light border-t-transparent rounded-full animate-spin" />
-            : <MapPin size={15} className="text-brown-light" />
-          }
+            : <MapPin size={15} className="text-brown-light" />}
         </div>
       </div>
-
       {open && suggestions.length > 0 && (
         <ul className="absolute z-50 top-full mt-1 w-full bg-cream border border-border rounded-xl shadow-lg overflow-hidden">
           {suggestions.map((f, i) => (
             <li key={i}>
               <button
                 type="button"
-                onClick={() => handleSelect(f)}
+                onClick={() => { onSelect(f.properties.name, f.properties.city, f.properties.postcode); setSuggestions([]); setOpen(false); }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-sand transition-colors flex items-start gap-2"
               >
                 <MapPin size={13} className="text-terracotta mt-0.5 flex-shrink-0" />
@@ -144,6 +203,21 @@ interface PromoResult {
   minOrder: number;
 }
 
+/* ─── Logo transporteur ─── */
+function CarrierBadge({ carrier }: { carrier: typeof CARRIERS[0] }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center w-10 h-7 rounded-md text-xs font-bold flex-shrink-0"
+      style={{
+        backgroundColor: carrier.bgColor,
+        color: carrier.textColor ?? "#FFFFFF",
+      }}
+    >
+      {carrier.abbr}
+    </span>
+  );
+}
+
 /* ─── Page checkout ─── */
 export default function CheckoutPage() {
   const router = useRouter();
@@ -155,8 +229,19 @@ export default function CheckoutPage() {
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+
+  // Livraison
   const [deliveryType, setDeliveryType] = useState<"home" | "relay">("home");
+  const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
+  const [relaySearchCity, setRelaySearchCity] = useState("");
+  const [relaySearchPostal, setRelaySearchPostal] = useState("");
+  const [relayPoints, setRelayPoints] = useState<RelayPoint[]>([]);
+  const [relaySearched, setRelaySearched] = useState(false);
+  const [relaySearchLoading, setRelaySearchLoading] = useState(false);
   const [selectedRelay, setSelectedRelay] = useState<RelayPoint | null>(null);
+
+  const selectedCarrier = CARRIERS.find((c) => c.id === selectedCarrierId) ?? CARRIERS[0];
+
   const [form, setForm] = useState({
     fullName: profile?.displayName ?? "",
     email: user?.email ?? "",
@@ -164,13 +249,26 @@ export default function CheckoutPage() {
     cardNumber: "", cardExpiry: "", cardCvc: "",
   });
 
+  // Pré-remplir la recherche relais depuis l'adresse domicile
+  useEffect(() => {
+    if (form.city && !relaySearchCity) setRelaySearchCity(form.city);
+    if (form.postalCode && !relaySearchPostal) setRelaySearchPostal(form.postalCode);
+  }, [form.city, form.postalCode]);
+
   const discount = promoResult
     ? promoResult.type === "percent"
       ? Math.round(total * promoResult.value / 100)
       : Math.min(total, promoResult.value)
     : 0;
-  const shippingCost = deliveryType === "relay" ? RELAY_SHIPPING_COST : HOME_SHIPPING_COST;
+  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : 0;
   const finalTotal = Math.max(0, total - discount + shippingCost);
+
+  // Réinitialiser le point sélectionné si on change de transporteur
+  useEffect(() => {
+    setSelectedRelay(null);
+    setRelayPoints([]);
+    setRelaySearched(false);
+  }, [selectedCarrierId]);
 
   async function applyPromo() {
     if (!promoCode.trim()) return;
@@ -201,6 +299,20 @@ export default function CheckoutPage() {
 
   function handleAddressSelect(address: string, city: string, postalCode: string) {
     setForm((f) => ({ ...f, address, city, postalCode }));
+    if (!relaySearchCity) setRelaySearchCity(city);
+    if (!relaySearchPostal) setRelaySearchPostal(postalCode);
+  }
+
+  function searchRelayPoints() {
+    if (!relaySearchPostal.trim() || !relaySearchCity.trim()) return;
+    setRelaySearchLoading(true);
+    setSelectedRelay(null);
+    setTimeout(() => {
+      const points = generateRelayPoints(relaySearchCity.trim(), relaySearchPostal.trim(), selectedCarrierId);
+      setRelayPoints(points);
+      setRelaySearched(true);
+      setRelaySearchLoading(false);
+    }, 800); // Simule un appel réseau
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -213,7 +325,6 @@ export default function CheckoutPage() {
     setLoading(true); setError("");
     try {
       const orderId = generateOrderId();
-
       const shippingData = deliveryType === "relay"
         ? {
             type: "relay" as const,
@@ -223,6 +334,7 @@ export default function CheckoutPage() {
             postalCode: selectedRelay!.postalCode,
             country: "France",
             relayPoint: selectedRelay,
+            carrier: selectedCarrier.name,
           }
         : {
             type: "home" as const,
@@ -253,8 +365,7 @@ export default function CheckoutPage() {
           const productRef = doc(db, "products", item.productId);
           const snap = await getDoc(productRef);
           if (snap.exists()) {
-            const currentStock = snap.data().stock ?? 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
+            const newStock = Math.max(0, (snap.data().stock ?? 0) - item.quantity);
             await updateDoc(productRef, { stock: newStock });
           }
         })
@@ -303,17 +414,13 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => setDeliveryType("home")}
                 className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                  deliveryType === "home"
-                    ? "border-brown bg-sand"
-                    : "border-border bg-cream hover:border-brown-mid"
+                  deliveryType === "home" ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
                 }`}
               >
                 <Home size={18} className={deliveryType === "home" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
                 <div>
-                  <p className={`font-medium text-sm ${deliveryType === "home" ? "text-brown" : "text-brown-mid"}`}>
-                    Livraison à domicile
-                  </p>
-                  <p className="text-xs text-brown-light mt-0.5">3-5 jours ouvrés · Offert</p>
+                  <p className={`font-medium text-sm ${deliveryType === "home" ? "text-brown" : "text-brown-mid"}`}>Livraison à domicile</p>
+                  <p className="text-xs text-brown-light mt-0.5">3–5 jours ouvrés · Offert</p>
                 </div>
                 {deliveryType === "home" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>
@@ -322,84 +429,164 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => setDeliveryType("relay")}
                 className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                  deliveryType === "relay"
-                    ? "border-brown bg-sand"
-                    : "border-border bg-cream hover:border-brown-mid"
+                  deliveryType === "relay" ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
                 }`}
               >
                 <Store size={18} className={deliveryType === "relay" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
                 <div>
-                  <p className={`font-medium text-sm ${deliveryType === "relay" ? "text-brown" : "text-brown-mid"}`}>
-                    Point relais
-                  </p>
-                  <p className="text-xs text-brown-light mt-0.5">2-4 jours ouvrés · Offert</p>
+                  <p className={`font-medium text-sm ${deliveryType === "relay" ? "text-brown" : "text-brown-mid"}`}>Point relais</p>
+                  <p className="text-xs text-brown-light mt-0.5">Mondial Relay · Colissimo · Chronopost</p>
                 </div>
                 {deliveryType === "relay" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>
             </div>
           </section>
 
-          {/* ─── Adresse / Point relais ─── */}
-          <section>
-            {deliveryType === "home" ? (
-              <>
-                <h2 className="font-serif font-semibold text-brown text-lg mb-5">Adresse de livraison</h2>
+          {/* ─── Section domicile ─── */}
+          {deliveryType === "home" && (
+            <section>
+              <h2 className="font-serif font-semibold text-brown text-lg mb-5">Adresse de livraison</h2>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
+                <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                <div className="sm:col-span-2">
+                  <AddressAutocomplete value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} onSelect={handleAddressSelect} />
+                </div>
+                <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
+                <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
+                <div className="sm:col-span-2">
+                  <Field label="Pays" name="country" value={form.country} onChange={handleChange} required />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ─── Section point relais ─── */}
+          {deliveryType === "relay" && (
+            <section className="space-y-6">
+              {/* Coordonnées */}
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-4">Vos coordonnées</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
                   <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-                  <div className="sm:col-span-2">
-                    <AddressAutocomplete
-                      value={form.address}
-                      onChange={(v) => setForm((f) => ({ ...f, address: v }))}
-                      onSelect={handleAddressSelect}
-                    />
-                  </div>
-                  <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
-                  <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
-                  <div className="sm:col-span-2"><Field label="Pays" name="country" value={form.country} onChange={handleChange} required /></div>
                 </div>
-              </>
-            ) : (
-              <>
-                <h2 className="font-serif font-semibold text-brown text-lg mb-2">Choisir un point relais</h2>
-                <p className="text-xs text-brown-light mb-5">Points relais disponibles près de chez vous (démo)</p>
-                <div className="grid sm:grid-cols-2 gap-2 mb-5">
-                  <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-                </div>
-                <div className="space-y-2">
-                  {RELAY_POINTS.map((relay) => (
+              </div>
+
+              {/* Choix du transporteur */}
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-4">Transporteur</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {CARRIERS.map((carrier) => (
                     <button
-                      key={relay.id}
+                      key={carrier.id}
                       type="button"
-                      onClick={() => setSelectedRelay(relay)}
-                      className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                        selectedRelay?.id === relay.id
-                          ? "border-brown bg-sand"
-                          : "border-border bg-cream hover:border-brown-mid"
+                      onClick={() => setSelectedCarrierId(carrier.id)}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                        selectedCarrierId === carrier.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
                       }`}
                     >
-                      <Store size={16} className={`flex-shrink-0 mt-0.5 ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-light"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium text-sm ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-mid"}`}>
-                          {relay.name}
+                      <CarrierBadge carrier={carrier} />
+                      <div className="text-center">
+                        <p className={`text-xs font-semibold ${selectedCarrierId === carrier.id ? "text-brown" : "text-brown-mid"}`}>
+                          {carrier.name}
                         </p>
-                        <p className="text-xs text-brown-light mt-0.5">{relay.address}, {relay.postalCode} {relay.city}</p>
+                        <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${carrier.price === 0 ? "text-green-700" : "text-terracotta"}`}>
+                          {carrier.price === 0 ? "Offert" : formatPrice(carrier.price)}
+                        </p>
                       </div>
-                      <div className="flex-shrink-0 flex items-center gap-2">
-                        {relay.distance && (
-                          <span className="text-xs text-brown-light bg-sand border border-border rounded-lg px-2 py-0.5">
-                            {relay.distance}
-                          </span>
-                        )}
-                        {selectedRelay?.id === relay.id && <Check size={15} className="text-brown" />}
-                      </div>
+                      {selectedCarrierId === carrier.id && <Check size={13} className="text-brown" />}
                     </button>
                   ))}
                 </div>
-              </>
-            )}
-          </section>
+              </div>
+
+              {/* Recherche points relais */}
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-2">
+                  Points relais {selectedCarrier.name}
+                </h2>
+                <p className="text-xs text-brown-light mb-4">
+                  Entrez votre ville et code postal pour trouver les points les plus proches.
+                </p>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    value={relaySearchCity}
+                    onChange={(e) => setRelaySearchCity(e.target.value)}
+                    placeholder="Ville"
+                    className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
+                  />
+                  <input
+                    type="text"
+                    value={relaySearchPostal}
+                    onChange={(e) => setRelaySearchPostal(e.target.value)}
+                    placeholder="Code postal"
+                    maxLength={5}
+                    className="w-32 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={searchRelayPoints}
+                    disabled={relaySearchLoading || !relaySearchCity.trim() || !relaySearchPostal.trim()}
+                    className="flex items-center gap-2 px-4 py-3 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors disabled:opacity-40"
+                  >
+                    {relaySearchLoading
+                      ? <div className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" />
+                      : <Search size={15} />}
+                    Rechercher
+                  </button>
+                </div>
+
+                {/* Résultats */}
+                {relaySearchLoading && (
+                  <div className="flex items-center justify-center py-10 gap-3 text-brown-light text-sm">
+                    <div className="w-5 h-5 border-2 border-border border-t-terracotta rounded-full animate-spin" />
+                    Recherche des points {selectedCarrier.name} à proximité…
+                  </div>
+                )}
+
+                {relaySearched && !relaySearchLoading && relayPoints.length > 0 && (
+                  <div className="space-y-2">
+                    {relayPoints.map((relay) => (
+                      <button
+                        key={relay.id}
+                        type="button"
+                        onClick={() => setSelectedRelay(relay)}
+                        className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                          selectedRelay?.id === relay.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
+                        }`}
+                      >
+                        <CarrierBadge carrier={selectedCarrier} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium text-sm ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-mid"}`}>
+                            {relay.name}
+                          </p>
+                          <p className="text-xs text-brown-light mt-0.5">{relay.address}, {relay.postalCode} {relay.city}</p>
+                          {relay.hours && (
+                            <p className="text-xs text-brown-light mt-1 flex items-center gap-1">
+                              <Clock size={10} className="flex-shrink-0" /> {relay.hours}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                          {relay.distance && (
+                            <span className="text-xs font-medium text-terracotta">{relay.distance}</span>
+                          )}
+                          {selectedRelay?.id === relay.id && <Check size={15} className="text-brown" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {relaySearched && !relaySearchLoading && relayPoints.length === 0 && (
+                  <p className="text-sm text-brown-light text-center py-6">Aucun point relais trouvé. Essayez une autre ville.</p>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ─── Paiement ─── */}
           <section>
@@ -485,18 +672,18 @@ export default function CheckoutPage() {
 
           <div className="border-t border-border pt-4 space-y-2">
             <div className="flex justify-between text-sm text-brown-light">
-              <span>Sous-total</span>
-              <span>{formatPrice(total)}</span>
+              <span>Sous-total</span><span>{formatPrice(total)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-sm text-green-700 font-medium">
-                <span>Réduction</span>
-                <span>−{formatPrice(discount)}</span>
+                <span>Réduction</span><span>−{formatPrice(discount)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm text-brown-light">
               <span>Livraison</span>
-              <span className="text-green-700 font-medium">Offerte</span>
+              {shippingCost === 0
+                ? <span className="text-green-700 font-medium">Offerte</span>
+                : <span>{formatPrice(shippingCost)}</span>}
             </div>
             <div className="flex justify-between font-semibold text-brown pt-1 border-t border-border">
               <span>Total</span>
@@ -504,16 +691,17 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Récapitulatif livraison */}
+          {/* Récap point relais sélectionné */}
           {deliveryType === "relay" && selectedRelay && (
             <div className="border-t border-border pt-4">
               <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-2">Point relais</p>
               <div className="flex items-start gap-2 text-xs text-brown-light">
-                <Store size={12} className="flex-shrink-0 mt-0.5 text-terracotta" />
-                <div>
+                <CarrierBadge carrier={selectedCarrier} />
+                <div className="ml-1">
                   <p className="font-medium text-brown-mid">{selectedRelay.name}</p>
                   <p>{selectedRelay.address}</p>
                   <p>{selectedRelay.postalCode} {selectedRelay.city}</p>
+                  {selectedRelay.hours && <p className="mt-0.5 text-brown-light">{selectedRelay.hours}</p>}
                 </div>
               </div>
             </div>
