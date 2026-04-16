@@ -6,23 +6,25 @@ import { db } from "@/lib/firebase";
 import type { Product } from "@/lib/types";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Heart, Mail } from "lucide-react";
+import { ArrowRight, Mail, MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useCategories } from "@/lib/categories";
 const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const { categories } = useCategories();
 
   useEffect(() => {
     async function load() {
       try {
         const snap = await getDocs(
-          query(collection(db, "products"), where("featured", "==", true), limit(3))
+          query(collection(db, "products"), where("featured", "==", true), limit(20))
         );
         const featured = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
-        if (featured.length < 3) {
-          const fill = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(3)));
-          setFeaturedProducts(fill.docs.map((d) => ({ id: d.id, ...d.data() } as Product)).slice(0, 3));
+        if (featured.length < 2) {
+          const fill = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(20)));
+          setFeaturedProducts(fill.docs.map((d) => ({ id: d.id, ...d.data() } as Product)));
         } else {
           setFeaturedProducts(featured);
         }
@@ -37,255 +39,408 @@ export default function HomePage() {
     <div style={{ background: "#fdf8f4" }}>
 
       {/* Barre d'annonce */}
-      <div className="bg-[#c0826a] text-white/90 text-xs py-2.5 text-center tracking-widest font-medium">
-        ✦&nbsp; Livraison offerte dès 80 € &nbsp;·&nbsp; Créations artisanales en résine &nbsp;·&nbsp; Pièces uniques &nbsp;✦
+      <div style={{ background: "#3d2b1f" }} className="text-white/70 text-xs py-2 text-center tracking-widest font-medium">
+        ✦&nbsp; Livraison offerte dès 80 € &nbsp;·&nbsp; Créations artisanales en résine &nbsp;·&nbsp; Bretagne &nbsp;✦
       </div>
 
-      {/* ── HERO — pleine hauteur, texte centré ── */}
-      <section className="relative min-h-[92vh] flex flex-col items-center justify-center px-6 text-center overflow-hidden" style={{ background: "linear-gradient(160deg, #fdf3ee 0%, #f5e6d8 60%, #eeddd2 100%)" }}>
+      {/* ══════════════════════════════════════
+          HERO — Entrée dans l'atelier
+      ══════════════════════════════════════ */}
+      <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: "#fdf3ee" }}>
 
-        {/* Cercles décoratifs animés */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(192,130,106,0.12) 0%, transparent 70%)", transform: "translate(20%, -20%)" }} />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(192,130,106,0.08) 0%, transparent 70%)", transform: "translate(-20%, 20%)" }} />
+        {/* Texture grain subtile */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundSize: "200px"
+        }} />
 
-        <FadeIn className="relative z-10 max-w-3xl flex flex-col items-center gap-8">
-          <p className="text-xs font-medium uppercase tracking-[0.3em]" style={{ color: "#c0826a" }}>
-            Histoire Éternelle · L&apos;Atelier d&apos;Anaïs · Bretagne
-          </p>
+        {/* Lumière chaude venant du coin haut-droit */}
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] pointer-events-none" style={{
+          background: "radial-gradient(ellipse at top right, rgba(192,130,106,0.18) 0%, transparent 65%)"
+        }} />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] pointer-events-none" style={{
+          background: "radial-gradient(ellipse at bottom left, rgba(61,43,31,0.06) 0%, transparent 65%)"
+        }} />
 
-          <h1 className="font-serif font-semibold leading-[1.1]" style={{ fontSize: "clamp(2.8rem, 6vw, 4.5rem)", color: "#3d2b1f" }}>
-            Certains instants méritent<br />
-            <em className="not-italic" style={{ color: "#c0826a" }}>de ne jamais disparaître.</em>
-          </h1>
+        <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-0 md:pt-24 grid md:grid-cols-2 gap-0 items-end min-h-[calc(100vh-2rem)]">
 
-          <p className="text-lg leading-relaxed max-w-xl" style={{ color: "#8a6858" }}>
-            Je m&apos;appelle Anaïs. Maman de trois enfants, je façonne à la main des bijoux en résine
-            qui préservent ce que vous avez de plus précieux — un souvenir, un lien, une émotion.
-          </p>
+          {/* Gauche — texte */}
+          <div className="flex flex-col justify-center gap-8 pb-16 md:pb-24">
+            <FadeIn>
+              <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "#c0826a" }}>
+                <MapPin size={12} />
+                <span className="uppercase tracking-[0.25em]">Bretagne · Atelier artisanal</span>
+              </div>
+            </FadeIn>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link
-              href="/a-propos"
-              className="flex items-center gap-2 px-8 py-4 text-white font-medium rounded-full transition-all hover:opacity-90 text-sm"
-              style={{ background: "#3d2b1f" }}
-            >
-              Découvrir mon histoire <ArrowRight size={15} />
-            </Link>
-            <Link
-              href="/contact"
-              className="flex items-center gap-2 px-8 py-4 border font-medium rounded-full transition-all text-sm hover:bg-white/60"
-              style={{ borderColor: "#c0826a", color: "#c0826a" }}
-            >
-              <Mail size={15} /> Me contacter
-            </Link>
+            <FadeIn delay={80}>
+              <h1 className="font-serif font-semibold leading-[1.08]" style={{ fontSize: "clamp(3rem, 5.5vw, 5rem)", color: "#3d2b1f" }}>
+                Bienvenue<br />
+                dans mon<br />
+                <em className="not-italic" style={{ color: "#c0826a" }}>atelier.</em>
+              </h1>
+            </FadeIn>
+
+            <FadeIn delay={160}>
+              <p className="text-lg leading-relaxed max-w-md" style={{ color: "#8a6858" }}>
+                Je m&apos;appelle Anaïs. Ici, dans ce petit coin de Bretagne,
+                je façonne à la main des bijoux en résine qui gardent vivants
+                vos souvenirs les plus précieux.
+              </p>
+            </FadeIn>
+
+            <FadeIn delay={240}>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/a-propos"
+                  className="flex items-center gap-2 px-7 py-3.5 text-white font-medium rounded-full text-sm transition-all hover:opacity-90"
+                  style={{ background: "#3d2b1f" }}
+                >
+                  Entrer dans l&apos;atelier <ArrowRight size={14} />
+                </Link>
+                <Link
+                  href="/contact"
+                  className="flex items-center gap-2 px-7 py-3.5 border font-medium rounded-full text-sm transition-all hover:bg-white/50"
+                  style={{ borderColor: "#c0826a", color: "#c0826a" }}
+                >
+                  <Mail size={14} /> Écrire à Anaïs
+                </Link>
+              </div>
+            </FadeIn>
+
+            {/* Petits détails artisanaux */}
+            <FadeIn delay={320}>
+              <div className="flex gap-6 pt-2">
+                {[
+                  { val: "100%", label: "Fait main" },
+                  { val: "Résine", label: "ArtResin & Resiners" },
+                  { val: "Unique", label: "Chaque pièce" },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <p className="font-serif font-semibold text-sm" style={{ color: "#3d2b1f" }}>{item.val}</p>
+                    <p className="text-xs" style={{ color: "#b09080" }}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
           </div>
-        </FadeIn>
 
-        {/* Vague bas */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 70 }}>
-          <svg viewBox="0 0 1440 70" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
-            <path d="M0,70 C480,10 960,10 1440,70 L1440,70 L0,70 Z" fill="#fdf8f4" />
+          {/* Droite — mosaïque de créations comme sur un établi */}
+          <FadeIn delay={100} className="relative flex items-end justify-center pb-0">
+            <AtlierMosaic products={featuredProducts} />
+          </FadeIn>
+        </div>
+
+        {/* Vague de transition */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 80 }}>
+          <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+            <path d="M0,80 C360,20 1080,20 1440,80 L1440,80 L0,80 Z" fill="#fdf8f4" />
           </svg>
         </div>
       </section>
 
-      {/* ── QUI EST ANAÏS ── */}
-      <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-
+      {/* ══════════════════════════════════════
+          SECTION — Collections
+      ══════════════════════════════════════ */}
+      {categories.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-16 md:py-20">
           <FadeIn>
-            <div className="space-y-6" style={{ color: "#8a6858" }}>
-              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: "#c0826a" }}>Mon atelier, mon cœur</p>
-              <h2 className="font-serif text-3xl md:text-4xl font-semibold leading-tight" style={{ color: "#3d2b1f" }}>
-                Je ne crée pas des bijoux.<br />Je préserve des émotions.
-              </h2>
-              <p className="leading-relaxed">
-                Chacune de mes maternités a été une transformation profonde. Ces instants — les premières heures,
-                le regard d&apos;un nouveau-né, la douceur du lait maternel — ont quelque chose d&apos;ineffable.
-                On sait qu&apos;ils vont passer. Et c&apos;est cette douleur douce qui m&apos;a donné l&apos;envie
-                de <em>figer le temps.</em>
-              </p>
-              <p className="leading-relaxed">
-                Lait maternel, mèches de cheveux, fleurs séchées, cendres… Chaque élément confié est accueilli
-                avec respect et gratitude. Je sais ce qu&apos;il représente. Je sais ce qu&apos;il raconte.
-              </p>
-              <Link
-                href="/a-propos"
-                className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
-                style={{ color: "#c0826a" }}
-              >
-                Lire mon histoire complète <ArrowRight size={14} />
-              </Link>
+            <div className="text-center mb-10">
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-2" style={{ color: "#c0826a" }}>L&apos;atelier</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Collections</h2>
             </div>
           </FadeIn>
 
-          <FadeIn delay={150}>
-            {/* Carte portrait */}
-            <div className="relative">
-              <div className="rounded-3xl overflow-hidden aspect-[4/5]" style={{ background: "linear-gradient(135deg, #f5e6d8, #eeddd2)" }}>
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-center space-y-3 p-8">
-                    <span className="text-6xl">🤱</span>
-                    <p className="font-serif text-lg italic" style={{ color: "#8a6858" }}>Photo d&apos;Anaïs à venir</p>
-                  </div>
-                </div>
-              </div>
-              {/* Badge flottant */}
-              <div className="absolute -bottom-5 -right-5 bg-white rounded-2xl px-5 py-4 shadow-lg border" style={{ borderColor: "#e8ddd5" }}>
-                <p className="font-serif text-2xl font-bold" style={{ color: "#3d2b1f" }}>100%</p>
-                <p className="text-xs" style={{ color: "#8a6858" }}>Fait à la main<br />en Bretagne</p>
-              </div>
-            </div>
-          </FadeIn>
-        </div>
-      </section>
+          <div className={`grid gap-4 ${categories.length === 1 ? "grid-cols-1" : categories.length === 2 ? "grid-cols-2" : categories.length === 3 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
+            {categories.map((cat, i) => (
+              <FadeIn key={cat.id} delay={i * 70}>
+                <Link
+                  href={`/catalogue?category=${cat.key}`}
+                  className="group relative block overflow-hidden rounded-2xl"
+                  style={{ aspectRatio: categories.length <= 2 ? "2/3" : categories.length === 3 && i === 0 ? "2/3" : "3/4", minHeight: 320 }}
+                >
+                  {/* Image ou fond dégradé */}
+                  {cat.imageUrl ? (
+                    <Image
+                      src={cat.imageUrl}
+                      alt={cat.label}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="absolute inset-0" style={{
+                      background: `linear-gradient(135deg, hsl(${20 + i * 30}, 35%, ${78 - i * 5}%), hsl(${30 + i * 30}, 30%, ${68 - i * 5}%))`
+                    }} />
+                  )}
 
-      {/* ── PROCESSUS — comment ça marche ── */}
-      <section style={{ background: "linear-gradient(135deg, #3d2b1f, #5a3e2e)", borderTop: "1px solid #e8ddd5" }} className="relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 rounded-full" style={{ background: "radial-gradient(circle, #c0826a, transparent)" }} />
-        </div>
-        <div className="relative max-w-5xl mx-auto px-6 py-20">
-          <FadeIn>
-            <div className="text-center mb-14">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] mb-3" style={{ color: "#c0826a" }}>Un processus humain</p>
-              <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white">Comment je travaille</h2>
-            </div>
-          </FadeIn>
+                  {/* Overlay sombre au bas */}
+                  <div className="absolute inset-0" style={{
+                    background: "linear-gradient(to top, rgba(30,15,5,0.75) 0%, rgba(30,15,5,0.2) 45%, transparent 70%)"
+                  }} />
 
-          <div className="grid md:grid-cols-4 gap-6">
-            {[
-              { num: "01", icon: "💬", title: "On se parle", desc: "Vous me contactez, on échange sur votre projet. Je vous écoute vraiment." },
-              { num: "02", icon: "📦", title: "Vous m'envoyez", desc: "Vous me confiez votre précieux souvenir. Je le reçois avec soin et respect." },
-              { num: "03", icon: "✨", title: "Je crée", desc: "Je façonne votre bijou à la main, avec la résine la plus adaptée à votre souvenir." },
-              { num: "04", icon: "💌", title: "Je vous livre", desc: "Votre création unique vous parvient, emballée avec amour, prête à vous émouvoir." },
-            ].map((step, i) => (
-              <FadeIn key={step.num} delay={i * 80}>
-                <div className="text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mx-auto" style={{ background: "rgba(255,255,255,0.08)" }}>
-                    {step.icon}
-                  </div>
-                  <p className="text-xs font-medium" style={{ color: "#c0826a" }}>{step.num}</p>
-                  <p className="font-serif font-semibold text-white">{step.title}</p>
-                  <p className="text-sm leading-relaxed" style={{ color: "#c8b49a" }}>{step.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-
-        {/* Vague bas */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 60 }}>
-          <svg viewBox="0 0 1440 60" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
-            <path d="M0,60 C480,0 960,0 1440,60 L1440,60 L0,60 Z" fill="#fdf8f4" />
-          </svg>
-        </div>
-      </section>
-
-      {/* ── APERÇU CRÉATIONS ── */}
-      <section className="max-w-5xl mx-auto px-6 py-20">
-        <FadeIn>
-          <div className="text-center mb-12">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] mb-3" style={{ color: "#c0826a" }}>Un aperçu de l&apos;atelier</p>
-            <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Quelques créations récentes</h2>
-            <p className="mt-3 max-w-lg mx-auto leading-relaxed" style={{ color: "#8a6858" }}>
-              Chaque pièce est unique — façonnée à partir de votre souvenir, pour votre histoire.
-            </p>
-          </div>
-        </FadeIn>
-
-        {featuredProducts.length > 0 && (
-          <div className="grid md:grid-cols-3 gap-6">
-            {featuredProducts.map((p, i) => (
-              <FadeIn key={p.id} delay={i * 80}>
-                <Link href={`/produits/${p.slug}`} className="group block rounded-3xl overflow-hidden border transition-shadow hover:shadow-lg" style={{ background: "#fdf3ee", borderColor: "#e8ddd5" }}>
-                  <div className="relative aspect-square overflow-hidden">
-                    {p.imageUrl ? (
-                      <Image
-                        src={p.imageUrl}
-                        alt={p.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: "#f0e4da" }}>
-                        <span className="text-4xl opacity-30">✨</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <p className="font-serif font-semibold" style={{ color: "#3d2b1f" }}>{p.name}</p>
-                    <p className="text-sm mt-1" style={{ color: "#8a6858" }}>Pièce unique · Fait main</p>
+                  {/* Texte */}
+                  <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+                    <p className="font-serif text-xl md:text-2xl font-semibold text-white leading-tight mb-1">
+                      {cat.label}
+                    </p>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/70 flex items-center gap-1.5 transition-all duration-300 group-hover:gap-3">
+                      Je découvre <ArrowRight size={11} />
+                    </p>
                   </div>
                 </Link>
               </FadeIn>
             ))}
           </div>
-        )}
+        </section>
+      )}
 
+      {/* ══════════════════════════════════════
+          SECTION — Mes coups de cœur
+      ══════════════════════════════════════ */}
+      {featuredProducts.length > 0 && (
+        <CoupsDeCoeur products={featuredProducts} />
+      )}
+
+      {/* ══════════════════════════════════════
+          SECTION — La femme derrière l'atelier
+      ══════════════════════════════════════ */}
+      <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
+        <div className="grid md:grid-cols-5 gap-12 items-center">
+
+          <FadeIn className="md:col-span-3">
+            <div className="space-y-6">
+              <p className="text-xs font-medium uppercase tracking-[0.22em]" style={{ color: "#c0826a" }}>La femme derrière l&apos;atelier</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold leading-[1.2]" style={{ color: "#3d2b1f" }}>
+                Un souvenir confié,<br />une vie préservée.
+              </h2>
+              <p className="leading-relaxed text-base" style={{ color: "#8a6858" }}>
+                Maman de trois enfants, femme de militaire, je sais ce que c&apos;est que de
+                vivre dans l&apos;impermanence — de tenir des instants qui filent trop vite.
+                C&apos;est cette douleur douce qui m&apos;a amenée à la résine.
+              </p>
+              <p className="leading-relaxed text-base" style={{ color: "#8a6858" }}>
+                Lait maternel, mèches de cheveux, fleurs séchées, cendres…
+                Chaque élément que vous me confiez est reçu avec respect et gratitude.
+                <strong style={{ color: "#3d2b1f" }}> Je sais ce qu&apos;il représente.</strong>
+              </p>
+              <Link href="/a-propos" className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: "#c0826a" }}>
+                Mon histoire complète <ArrowRight size={13} />
+              </Link>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={120} className="md:col-span-2">
+            <div className="relative rounded-3xl overflow-hidden" style={{ aspectRatio: "3/4", boxShadow: "0 16px 48px rgba(61,43,31,0.18)" }}>
+              <Image
+                src="https://firebasestorage.googleapis.com/v0/b/fir-boutique-754bb.firebasestorage.app/o/image%20170.png?alt=media&token=21cfe27b-d371-4eea-a3fb-b607f30b6bb7"
+                alt="Anaïs, fondatrice"
+                fill
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="object-cover"
+              />
+            </div>
+          </FadeIn>
+
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          SECTION — Photos souvenirs polaroïd
+      ══════════════════════════════════════ */}
+      <PolaroidSection />
+
+      {/* ══════════════════════════════════════
+          CTA — Parlons de votre projet
+      ══════════════════════════════════════ */}
+      <section className="px-6 py-16 md:py-24">
         <FadeIn>
-          <div className="text-center mt-10">
-            <Link
-              href="/catalogue"
-              className="inline-flex items-center gap-2 px-8 py-3.5 border-2 font-medium rounded-full transition-all hover:bg-[#3d2b1f] hover:text-white text-sm"
-              style={{ borderColor: "#3d2b1f", color: "#3d2b1f" }}
-            >
-              Voir toutes les créations <ArrowRight size={15} />
-            </Link>
+          <div className="max-w-3xl mx-auto rounded-3xl overflow-hidden relative" style={{ background: "linear-gradient(135deg, #3d2b1f 0%, #6b4535 100%)" }}>
+            {/* Lumière décorative */}
+            <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none" style={{
+              background: "radial-gradient(circle, rgba(192,130,106,0.3) 0%, transparent 70%)",
+              transform: "translate(20%, -20%)"
+            }} />
+            <div className="relative px-10 md:px-16 py-14 text-center">
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-4" style={{ color: "#c0826a" }}>
+                Votre histoire mérite d&apos;être préservée
+              </p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white mb-5">
+                Parlons de votre projet
+              </h2>
+              <p className="max-w-sm mx-auto leading-relaxed mb-10" style={{ color: "#c8b49a" }}>
+                Un souvenir à préserver ? Une idée ? Écrivez-moi —
+                chaque conversation commence par un échange humain, jamais une transaction.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/contact"
+                  className="flex items-center justify-center gap-2 px-8 py-4 font-medium rounded-full text-sm transition-all hover:opacity-90"
+                  style={{ background: "#c0826a", color: "white" }}
+                >
+                  <Mail size={15} /> Écrire à Anaïs
+                </Link>
+                <Link
+                  href="/catalogue"
+                  className="flex items-center justify-center gap-2 px-8 py-4 border border-white/20 text-white/80 font-medium rounded-full hover:bg-white/10 transition-colors text-sm"
+                >
+                  Voir les créations <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
           </div>
         </FadeIn>
       </section>
 
-      {/* ── PHOTOS SOUVENIRS polaroïd ── */}
-      <PolaroidSection />
+    </div>
+  );
+}
 
-      {/* ── GRANDE CITATION ── */}
-      <section style={{ background: "#fdf3ee", borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5" }}>
-        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
-          <FadeIn>
-            <Heart size={24} className="mx-auto mb-8" style={{ color: "#c0826a" }} />
-            <p className="font-serif text-2xl md:text-3xl italic leading-relaxed mb-8" style={{ color: "#3d2b1f" }}>
-              &ldquo;Créer un bijou mémoriel, c&apos;est entrer dans l&apos;histoire de quelqu&apos;un.
-              C&apos;est un honneur que je ne prends jamais à la légère.&rdquo;
-            </p>
-            <p className="text-sm font-medium" style={{ color: "#c0826a" }}>— Anaïs</p>
-          </FadeIn>
-        </div>
-      </section>
+/* ── Mosaïque de l'atelier — créations disposées comme sur un établi ── */
+function AtlierMosaic({ products }: { products: Product[] }) {
+  const layouts = [
+    { top: "5%",  left: "5%",  w: "52%", aspect: "aspect-[3/4]", rotate: "-2deg",  delay: 200 },
+    { top: "0%",  left: "55%", w: "42%", aspect: "aspect-square", rotate: "2.5deg", delay: 350 },
+    { top: "52%", left: "0%",  w: "44%", aspect: "aspect-square", rotate: "-1.5deg", delay: 500 },
+    { top: "48%", left: "48%", w: "50%", aspect: "aspect-[4/3]", rotate: "1.5deg",  delay: 300 },
+  ];
 
-      {/* ── CTA CONTACT ── */}
-      <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
-        <div className="rounded-3xl p-10 md:p-14 text-center" style={{ background: "linear-gradient(135deg, #3d2b1f, #5a3e2e)" }}>
-          <FadeIn>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] mb-4" style={{ color: "#c0826a" }}>Votre histoire mérite d&apos;être préservée</p>
-            <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white mb-5">
-              Parlons de votre projet
-            </h2>
-            <p className="max-w-md mx-auto leading-relaxed mb-10" style={{ color: "#c8b49a" }}>
-              Vous avez un souvenir à préserver ? Un projet qui vous tient à cœur ?
-              Écrivez-moi — je serai ravie d&apos;échanger avec vous et de créer quelque chose d&apos;unique ensemble.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/contact"
-                className="flex items-center justify-center gap-2 px-8 py-4 font-medium rounded-full transition-all text-sm"
-                style={{ background: "#c0826a", color: "white" }}
-              >
-                <Mail size={15} /> Me contacter
-              </Link>
-              <Link
-                href="/catalogue"
-                className="flex items-center justify-center gap-2 px-8 py-4 border border-white/20 text-white/80 font-medium rounded-full hover:bg-white/10 transition-colors text-sm"
-              >
-                Voir les créations <ArrowRight size={15} />
-              </Link>
+  return (
+    <div className="relative w-full" style={{ height: "min(85vh, 640px)", minHeight: 380 }}>
+      {layouts.map((layout, i) => {
+        const product = products[i];
+        return (
+          <FadeIn key={i} delay={layout.delay}>
+            <div
+              className="absolute rounded-2xl overflow-hidden shadow-lg"
+              style={{
+                top: layout.top,
+                left: layout.left,
+                width: layout.w,
+                transform: `rotate(${layout.rotate})`,
+                transformOrigin: "center center",
+                border: "3px solid white",
+                boxShadow: "0 8px 32px rgba(61,43,31,0.15)",
+              }}
+            >
+              <div className={layout.aspect}>
+                {product?.imageUrl ? (
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: `hsl(${20 + i * 15}, 30%, ${88 - i * 3}%)` }}>
+                    <span className="text-3xl opacity-40">✨</span>
+                  </div>
+                )}
+              </div>
             </div>
           </FadeIn>
-        </div>
-      </section>
-
+        );
+      })}
     </div>
+  );
+}
+
+/* ── Carrousel "Mes coups de cœur" ── */
+function CoupsDeCoeur({ products }: { products: Product[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  function onMouseDown(e: React.MouseEvent) {
+    isDragging.current = true;
+    hasDragged.current = false;
+    startX.current = e.pageX - (scrollRef.current?.offsetLeft ?? 0);
+    scrollLeft.current = scrollRef.current?.scrollLeft ?? 0;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grabbing";
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.2;
+    if (Math.abs(walk) > 4) hasDragged.current = true;
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  }
+
+  function onMouseUp() {
+    isDragging.current = false;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grab";
+  }
+
+  function onClickCapture(e: React.MouseEvent) {
+    if (hasDragged.current) e.preventDefault();
+  }
+
+  return (
+    <section style={{ borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5", background: "#fdf8f4" }} className="py-12 md:py-14">
+
+      {/* Header — même padding que le reste de la page */}
+      <div className="max-w-6xl mx-auto px-6 md:px-12 mb-7">
+        <FadeIn>
+          <p className="text-xs font-medium uppercase tracking-[0.25em] mb-1" style={{ color: "#c0826a" }}>Sélection</p>
+          <h2 className="font-serif text-3xl font-semibold" style={{ color: "#3d2b1f" }}>Mes coups de cœur</h2>
+        </FadeIn>
+      </div>
+
+      {/* Carrousel : aligné à gauche avec le titre, déborde à droite */}
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto select-none"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          paddingLeft: "max(1.5rem, calc((100vw - 72rem) / 2 + 3rem))",
+          paddingRight: "clamp(1.5rem, 5vw, 3rem)",
+          paddingBottom: 8,
+          cursor: "grab",
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onClickCapture={onClickCapture}
+      >
+        {products.map((p, i) => (
+          <Link
+            key={p.id}
+            href={`/produits/${p.slug}`}
+            className="group flex-shrink-0 block overflow-hidden transition-all"
+            style={{ width: "clamp(240px, 28vw, 340px)" }}
+            draggable={false}
+          >
+            <div className="relative overflow-hidden rounded-xl" style={{ aspectRatio: "3/4" }}>
+              {p.imageUrl ? (
+                <Image
+                  src={p.imageUrl}
+                  alt={p.name}
+                  fill
+                  sizes="260px"
+                  className="object-cover transition-transform duration-600 group-hover:scale-105"
+                  draggable={false}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: `hsl(${20 + i * 20}, 28%, ${85 - i * 2}%)` }}>
+                  <span className="text-4xl opacity-30">✨</span>
+                </div>
+              )}
+            </div>
+            <div className="pt-3 pb-1">
+              <p className="font-serif font-semibold text-sm truncate" style={{ color: "#3d2b1f" }}>{p.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: "#b09080" }}>Pièce unique · Fait main</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -299,20 +454,20 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          el.style.transition = `opacity 0.75s ease ${delay}ms, transform 0.75s ease ${delay}ms`;
+          el.style.transition = `opacity 0.8s ease ${delay}ms, transform 0.8s ease ${delay}ms`;
           el.style.opacity = "1";
           el.style.transform = "translateY(0)";
           observer.disconnect();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.08 }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [delay]);
 
   return (
-    <div ref={ref} className={className} style={{ opacity: 0, transform: "translateY(28px)" }}>
+    <div ref={ref} className={className} style={{ opacity: 0, transform: "translateY(24px)" }}>
       {children}
     </div>
   );

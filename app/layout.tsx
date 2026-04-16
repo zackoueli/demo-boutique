@@ -31,8 +31,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${geist.variable} ${playfair.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-cream text-brown font-sans">
+    <html lang="fr" className={`${geist.variable} ${playfair.variable} h-full antialiased overflow-x-hidden`}>
+      <body className="min-h-full flex flex-col bg-cream text-brown font-sans overflow-x-hidden">
         <Providers>
           <Navbar />
           <main className="flex-1">{children}</main>
