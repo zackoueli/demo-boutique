@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronRight, FolderOpen, Tag } from "lucide-react";
+import { useRef, useState } from "react";
+import Image from "next/image";
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronRight, FolderOpen, Tag, ImageIcon, Loader2 } from "lucide-react";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 import {
   useCategories, addCategory, updateCategory, deleteCategory,
-  addSubCategory, updateSubCategory, deleteSubCategory,
+  addSubCategory, updateSubCategory, deleteSubCategory, updateCategoryImage,
 } from "@/lib/categories";
 
 const inputCls = "px-3 py-2 border border-border rounded-lg text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition";
@@ -25,6 +28,10 @@ export default function AdminCategoriesPage() {
 
   const [editingSub, setEditingSub] = useState<{ catId: string; subKey: string } | null>(null);
   const [editingSubLabel, setEditingSubLabel] = useState("");
+
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function toggleExpand(id: string) {
     setExpandedCats((prev) => {
@@ -74,6 +81,26 @@ export default function AdminCategoriesPage() {
     await deleteSubCategory(catId, subKey, subs);
   }
 
+  async function handleImageUpload(catId: string, file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploadingFor(catId);
+    setUploadProgress(0);
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const path = `photos/categories/${catId}_${Date.now()}.${ext}`;
+    const storageRef = ref(storage, path);
+    const task = uploadBytesResumable(storageRef, file);
+    task.on(
+      "state_changed",
+      (snap) => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      () => setUploadingFor(null),
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        await updateCategoryImage(catId, url);
+        setUploadingFor(null);
+      }
+    );
+  }
+
   return (
     <div className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-8">
@@ -89,21 +116,18 @@ export default function AdminCategoriesPage() {
         </button>
       </div>
 
-      {/* Formulaire nouvelle catégorie */}
       {addingCat && (
         <div className="bg-sand border border-border rounded-2xl p-4 mb-6 flex gap-3 items-center">
           <FolderOpen size={16} className="text-terracotta flex-shrink-0" />
           <input
-            autoFocus
-            type="text"
-            value={newCatLabel}
+            autoFocus type="text" value={newCatLabel}
             onChange={(e) => setNewCatLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddCat(); if (e.key === "Escape") setAddingCat(false); }}
             placeholder="Nom de la catégorie"
             className={`${inputCls} flex-1`}
           />
-          <button onClick={handleAddCat} className="p-2 text-terracotta hover:text-terra-light transition-colors"><Check size={16} /></button>
-          <button onClick={() => setAddingCat(false)} className="p-2 text-brown-light hover:text-brown transition-colors"><X size={16} /></button>
+          <button onClick={handleAddCat} className="p-2 text-terracotta hover:text-terra-light"><Check size={16} /></button>
+          <button onClick={() => setAddingCat(false)} className="p-2 text-brown-light hover:text-brown"><X size={16} /></button>
         </div>
       )}
 
@@ -120,6 +144,7 @@ export default function AdminCategoriesPage() {
         <div className="space-y-3">
           {categories.map((cat) => {
             const isExpanded = expandedCats.has(cat.id);
+            const isUploading = uploadingFor === cat.id;
             return (
               <div key={cat.id} className="bg-cream border border-border rounded-2xl overflow-hidden">
                 {/* Ligne catégorie */}
@@ -127,13 +152,35 @@ export default function AdminCategoriesPage() {
                   <button onClick={() => toggleExpand(cat.id)} className="text-brown-light hover:text-brown transition-colors">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
-                  <FolderOpen size={15} className="text-terracotta flex-shrink-0" />
+
+                  {/* Miniature image */}
+                  <div
+                    className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative cursor-pointer border border-border"
+                    onClick={() => fileRefs.current[cat.id]?.click()}
+                    title="Cliquer pour changer la photo"
+                  >
+                    {isUploading ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-parchment gap-1">
+                        <Loader2 size={12} className="text-terracotta animate-spin" />
+                        <span className="text-[9px] text-brown-light">{uploadProgress}%</span>
+                      </div>
+                    ) : cat.imageUrl ? (
+                      <Image src={cat.imageUrl} alt={cat.label} fill sizes="40px" className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-parchment hover:bg-sand transition-colors">
+                        <ImageIcon size={14} className="text-brown-light" />
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => { fileRefs.current[cat.id] = el; }}
+                      type="file" accept="image/*" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(cat.id, f); e.target.value = ""; }}
+                    />
+                  </div>
 
                   {editingCatId === cat.id ? (
                     <input
-                      autoFocus
-                      type="text"
-                      value={editingCatLabel}
+                      autoFocus type="text" value={editingCatLabel}
                       onChange={(e) => setEditingCatLabel(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleUpdateCat(cat.id); if (e.key === "Escape") setEditingCatId(null); }}
                       className={`${inputCls} flex-1`}
@@ -163,15 +210,12 @@ export default function AdminCategoriesPage() {
                     {(cat.subCategories ?? []).length === 0 && addingSubFor !== cat.id && (
                       <p className="text-xs text-brown-light italic">Aucune sous-catégorie</p>
                     )}
-
                     {(cat.subCategories ?? []).map((sub) => (
                       <div key={sub.key} className="flex items-center gap-2 group/sub pl-2">
                         <Tag size={12} className="text-brown-light flex-shrink-0" />
                         {editingSub?.catId === cat.id && editingSub.subKey === sub.key ? (
                           <input
-                            autoFocus
-                            type="text"
-                            value={editingSubLabel}
+                            autoFocus type="text" value={editingSubLabel}
                             onChange={(e) => setEditingSubLabel(e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter") handleUpdateSub(cat.id, sub.key, cat.subCategories); if (e.key === "Escape") setEditingSub(null); }}
                             className={`${inputCls} flex-1 text-xs py-1.5`}
@@ -192,15 +236,11 @@ export default function AdminCategoriesPage() {
                         )}
                       </div>
                     ))}
-
-                    {/* Formulaire ajout sous-cat */}
                     {addingSubFor === cat.id ? (
                       <div className="flex items-center gap-2 pl-2 mt-2">
                         <Tag size={12} className="text-terracotta flex-shrink-0" />
                         <input
-                          autoFocus
-                          type="text"
-                          value={newSubLabel[cat.id] ?? ""}
+                          autoFocus type="text" value={newSubLabel[cat.id] ?? ""}
                           onChange={(e) => setNewSubLabel((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddSub(cat.id, cat.subCategories); if (e.key === "Escape") setAddingSubFor(null); }}
                           placeholder="Nom de la sous-catégorie"

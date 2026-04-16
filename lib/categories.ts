@@ -15,8 +15,13 @@ export interface Category {
   key: string;
   label: string;
   subCategories: SubCategory[];
+  imageUrl?: string;
   order: number;
   createdAt?: unknown;
+}
+
+export async function updateCategoryImage(id: string, imageUrl: string): Promise<void> {
+  await updateDoc(doc(db, "categories", id), { imageUrl });
 }
 
 export function useCategories() {

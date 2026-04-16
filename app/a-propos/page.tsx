@@ -260,25 +260,6 @@ export default function AProposPage() {
         </div>
       </section>
 
-      {/* ── VALEURS ── */}
-      <section style={{ background: "#fdf3ee", borderBottom: "1px solid #e8ddd5" }}>
-        <div className="max-w-4xl mx-auto px-6 py-16 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-          {[
-            { icon: "🤱", title: "Créée avec amour", desc: "Chaque pièce naît d'une intention sincère, façonnée à la main avec patience et douceur." },
-            { icon: "✨", title: "Résine premium", desc: "Jamais de résine UV. Resiners et ArtResin + HALS pour des créations qui durent vraiment." },
-            { icon: "💌", title: "Proche de vous", desc: "Vous méritez d'être écoutée. Chaque commande est un échange humain, pas une transaction." },
-          ].map((v, i) => (
-            <FadeIn key={v.title} delay={i * 80}>
-              <div className="flex flex-col items-center gap-3">
-                <span className="text-4xl">{v.icon}</span>
-                <p className="font-serif font-semibold text-lg" style={{ color: "#3d2b1f" }}>{v.title}</p>
-                <p className="text-sm leading-relaxed max-w-52" style={{ color: "#8a6858" }}>{v.desc}</p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
       {/* ── CTA ── */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <FadeIn>

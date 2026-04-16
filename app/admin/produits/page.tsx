@@ -153,12 +153,14 @@ export default function AdminProduitsPage() {
         .map((s) => s.trim())
         .filter(Boolean);
 
+      const mainImage = form.imageUrl || extraImages[0] || "";
+
       const data = {
         name: form.name, slug: slugify(form.name), description: form.description,
         price: Math.round(parseFloat(form.price) * 100),
         category: form.category, subCategory: form.subCategory || "",
         stock: parseInt(form.stock), featured: form.featured,
-        imageUrl: form.imageUrl, imageStoragePath: "",
+        imageUrl: mainImage, imageStoragePath: "",
         images: extraImages.length ? extraImages : [],
         materials: form.materials || "",
         careInstructions: form.careInstructions || "",
