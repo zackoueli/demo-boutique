@@ -1,234 +1,287 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { collection, getDocs, query, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Product } from "@/lib/types";
-import ProductCard from "./ui/product-card";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ShoppingBag, Heart, Sparkles } from "lucide-react";
-import { ProductGridSkeleton } from "./ui/skeletons";
-import { formatPrice } from "@/lib/utils";
-import { useCart } from "@/lib/cart-context";
+import { ArrowRight, Heart, Mail } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCategories } from "@/lib/categories";
 const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
 
 export default function HomePage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [heroProducts, setHeroProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("");
-  const { categories } = useCategories();
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
-        const allSnap = await getDocs(
-          query(collection(db, "products"), orderBy("createdAt", "desc"), limit(8))
+        const snap = await getDocs(
+          query(collection(db, "products"), where("featured", "==", true), limit(3))
         );
-        const all = allSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
-        setProducts(all);
-        try {
-          const heroSnap = await getDocs(
-            query(collection(db, "products"), where("featured", "==", true), limit(4))
-          );
-          const hero = heroSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
-          setHeroProducts(hero.length >= 2 ? hero : all.slice(0, 4));
-        } catch {
-          setHeroProducts(all.slice(0, 4));
+        const featured = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
+        if (featured.length < 3) {
+          const fill = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(3)));
+          setFeaturedProducts(fill.docs.map((d) => ({ id: d.id, ...d.data() } as Product)).slice(0, 3));
+        } else {
+          setFeaturedProducts(featured);
         }
       } catch {
-        setProducts([]);
-        setHeroProducts([]);
-      } finally {
-        setLoading(false);
+        setFeaturedProducts([]);
       }
     }
     load();
   }, []);
 
-  const filtered = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
-
   return (
-    <div className="bg-[#fdf8f4]">
+    <div style={{ background: "#fdf8f4" }}>
 
       {/* Barre d'annonce */}
       <div className="bg-[#c0826a] text-white/90 text-xs py-2.5 text-center tracking-widest font-medium">
         ✦&nbsp; Livraison offerte dès 80 € &nbsp;·&nbsp; Créations artisanales en résine &nbsp;·&nbsp; Pièces uniques &nbsp;✦
       </div>
 
-      {/* Hero */}
-      <section className="grid md:grid-cols-2 min-h-[88vh] border-b border-[#e8ddd5]">
+      {/* ── HERO — pleine hauteur, texte centré ── */}
+      <section className="relative min-h-[92vh] flex flex-col items-center justify-center px-6 text-center overflow-hidden" style={{ background: "linear-gradient(160deg, #fdf3ee 0%, #f5e6d8 60%, #eeddd2 100%)" }}>
 
-        {/* Gauche — texte */}
-        <div className="flex flex-col justify-center px-8 md:px-16 py-20 gap-7" style={{ background: "linear-gradient(135deg, #fdf3ee 0%, #f7ece4 100%)" }}>
-          <p className="text-xs font-medium uppercase tracking-[0.25em]" style={{ color: "#c0826a" }}>
-            Histoire Eternelle · L&apos;Atelier d&apos;Anaïs
+        {/* Cercles décoratifs animés */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(192,130,106,0.12) 0%, transparent 70%)", transform: "translate(20%, -20%)" }} />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(192,130,106,0.08) 0%, transparent 70%)", transform: "translate(-20%, 20%)" }} />
+
+        <FadeIn className="relative z-10 max-w-3xl flex flex-col items-center gap-8">
+          <p className="text-xs font-medium uppercase tracking-[0.3em]" style={{ color: "#c0826a" }}>
+            Histoire Éternelle · L&apos;Atelier d&apos;Anaïs · Bretagne
           </p>
-          <h1 className="font-serif leading-[1.15] text-brown" style={{ fontSize: "clamp(2.2rem, 5vw, 3.5rem)" }}>
-            Des créations qui<br />
-            <em className="not-italic" style={{ color: "#c0826a" }}>gardent vos plus belles histoires</em>
+
+          <h1 className="font-serif font-semibold leading-[1.1]" style={{ fontSize: "clamp(2.8rem, 6vw, 4.5rem)", color: "#3d2b1f" }}>
+            Certains instants méritent<br />
+            <em className="not-italic" style={{ color: "#c0826a" }}>de ne jamais disparaître.</em>
           </h1>
-          <p className="leading-relaxed max-w-sm text-base" style={{ color: "#8a6858" }}>
-            Maman de trois enfants, je façonne des bijoux en résine pour capturer les instants précieux —
-            une mèche de cheveux, une goutte de lait, une fleur séchée. Parce que certaines émotions méritent de durer éternellement.
+
+          <p className="text-lg leading-relaxed max-w-xl" style={{ color: "#8a6858" }}>
+            Je m&apos;appelle Anaïs. Maman de trois enfants, je façonne à la main des bijoux en résine
+            qui préservent ce que vous avez de plus précieux — un souvenir, un lien, une émotion.
           </p>
-          <div className="flex items-center gap-4 flex-wrap">
+
+          <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
-              href="/catalogue"
-              className="flex items-center gap-2 px-7 py-3.5 text-white font-medium rounded-full transition-colors text-sm"
+              href="/a-propos"
+              className="flex items-center gap-2 px-8 py-4 text-white font-medium rounded-full transition-all hover:opacity-90 text-sm"
               style={{ background: "#3d2b1f" }}
             >
-              Découvrir les créations <ArrowRight size={15} />
+              Découvrir mon histoire <ArrowRight size={15} />
             </Link>
-            <Link href="/a-propos" className="text-sm underline underline-offset-4 transition-colors" style={{ color: "#c0826a" }}>
-              En savoir plus sur Anaïs
-            </Link>
-          </div>
-        </div>
-
-        {/* Droite — grille produits */}
-        <div className="grid grid-cols-2 gap-px" style={{ background: "#e8ddd5" }}>
-          {loading
-            ? [...Array(4)].map((_, i) => (
-                <div key={i} className="animate-pulse aspect-square" style={{ background: "#f5ede6" }} />
-              ))
-            : heroProducts.length > 0
-            ? heroProducts.map((p) => <HeroTile key={p.id} product={p} />)
-            : [...Array(4)].map((_, i) => <EmptyTile key={i} />)}
-        </div>
-      </section>
-
-      {/* Bloc "à propos" doux */}
-      <section style={{ background: "#fdf3ee", borderBottom: "1px solid #e8ddd5" }}>
-        <div className="max-w-3xl mx-auto px-4 py-14 text-center">
-          <Heart size={22} className="mx-auto mb-5" style={{ color: "#c0826a" }} />
-          <p className="font-serif text-2xl md:text-3xl font-semibold leading-snug mb-5" style={{ color: "#3d2b1f" }}>
-            &ldquo;Je ne fabrique pas des bijoux. Je préserve des émotions.&rdquo;
-          </p>
-          <p className="leading-relaxed max-w-xl mx-auto" style={{ color: "#8a6858" }}>
-            Chaque pièce est créée avec une intention : honorer un moment, un lien, une histoire.
-            Ici, vous n&apos;êtes pas un numéro de commande — vous êtes une histoire qui mérite d&apos;être préservée.
-          </p>
-          <Link href="/a-propos" className="inline-flex items-center gap-2 mt-6 text-sm font-medium transition-colors" style={{ color: "#c0826a" }}>
-            Découvrir mon histoire <ArrowRight size={14} />
-          </Link>
-        </div>
-      </section>
-
-      {/* Catalogue inline */}
-      <section className="max-w-6xl mx-auto px-4 py-16">
-        <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] mb-1" style={{ color: "#c0826a" }}>Mes créations</p>
-            <h2 className="font-serif text-3xl font-semibold" style={{ color: "#3d2b1f" }}>La collection</h2>
-          </div>
-          <Link href="/catalogue" className="text-sm flex items-center gap-1 transition-colors" style={{ color: "#8a6858" }}>
-            Tout voir <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {/* Filtres */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
-          <button
-            onClick={() => setActiveCategory("")}
-            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-all"
-            style={{
-              background: activeCategory === "" ? "#3d2b1f" : "transparent",
-              color: activeCategory === "" ? "#fdf8f4" : "#8a6858",
-              borderColor: activeCategory === "" ? "#3d2b1f" : "#e8ddd5",
-            }}
-          >
-            Tous
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key)}
-              className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-all"
-              style={{
-                background: activeCategory === cat.key ? "#3d2b1f" : "transparent",
-                color: activeCategory === cat.key ? "#fdf8f4" : "#8a6858",
-                borderColor: activeCategory === cat.key ? "#3d2b1f" : "#e8ddd5",
-              }}
+            <Link
+              href="/contact"
+              className="flex items-center gap-2 px-8 py-4 border font-medium rounded-full transition-all text-sm hover:bg-white/60"
+              style={{ borderColor: "#c0826a", color: "#c0826a" }}
             >
-              {cat.label}
-            </button>
-          ))}
+              <Mail size={15} /> Me contacter
+            </Link>
+          </div>
+        </FadeIn>
+
+        {/* Vague bas */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 70 }}>
+          <svg viewBox="0 0 1440 70" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+            <path d="M0,70 C480,10 960,10 1440,70 L1440,70 L0,70 Z" fill="#fdf8f4" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ── QUI EST ANAÏS ── */}
+      <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+
+          <FadeIn>
+            <div className="space-y-6" style={{ color: "#8a6858" }}>
+              <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: "#c0826a" }}>Mon atelier, mon cœur</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold leading-tight" style={{ color: "#3d2b1f" }}>
+                Je ne crée pas des bijoux.<br />Je préserve des émotions.
+              </h2>
+              <p className="leading-relaxed">
+                Chacune de mes maternités a été une transformation profonde. Ces instants — les premières heures,
+                le regard d&apos;un nouveau-né, la douceur du lait maternel — ont quelque chose d&apos;ineffable.
+                On sait qu&apos;ils vont passer. Et c&apos;est cette douleur douce qui m&apos;a donné l&apos;envie
+                de <em>figer le temps.</em>
+              </p>
+              <p className="leading-relaxed">
+                Lait maternel, mèches de cheveux, fleurs séchées, cendres… Chaque élément confié est accueilli
+                avec respect et gratitude. Je sais ce qu&apos;il représente. Je sais ce qu&apos;il raconte.
+              </p>
+              <Link
+                href="/a-propos"
+                className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
+                style={{ color: "#c0826a" }}
+              >
+                Lire mon histoire complète <ArrowRight size={14} />
+              </Link>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={150}>
+            {/* Carte portrait */}
+            <div className="relative">
+              <div className="rounded-3xl overflow-hidden aspect-[4/5]" style={{ background: "linear-gradient(135deg, #f5e6d8, #eeddd2)" }}>
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center space-y-3 p-8">
+                    <span className="text-6xl">🤱</span>
+                    <p className="font-serif text-lg italic" style={{ color: "#8a6858" }}>Photo d&apos;Anaïs à venir</p>
+                  </div>
+                </div>
+              </div>
+              {/* Badge flottant */}
+              <div className="absolute -bottom-5 -right-5 bg-white rounded-2xl px-5 py-4 shadow-lg border" style={{ borderColor: "#e8ddd5" }}>
+                <p className="font-serif text-2xl font-bold" style={{ color: "#3d2b1f" }}>100%</p>
+                <p className="text-xs" style={{ color: "#8a6858" }}>Fait à la main<br />en Bretagne</p>
+              </div>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── PROCESSUS — comment ça marche ── */}
+      <section style={{ background: "linear-gradient(135deg, #3d2b1f, #5a3e2e)", borderTop: "1px solid #e8ddd5" }} className="relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5 pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 rounded-full" style={{ background: "radial-gradient(circle, #c0826a, transparent)" }} />
+        </div>
+        <div className="relative max-w-5xl mx-auto px-6 py-20">
+          <FadeIn>
+            <div className="text-center mb-14">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] mb-3" style={{ color: "#c0826a" }}>Un processus humain</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white">Comment je travaille</h2>
+            </div>
+          </FadeIn>
+
+          <div className="grid md:grid-cols-4 gap-6">
+            {[
+              { num: "01", icon: "💬", title: "On se parle", desc: "Vous me contactez, on échange sur votre projet. Je vous écoute vraiment." },
+              { num: "02", icon: "📦", title: "Vous m'envoyez", desc: "Vous me confiez votre précieux souvenir. Je le reçois avec soin et respect." },
+              { num: "03", icon: "✨", title: "Je crée", desc: "Je façonne votre bijou à la main, avec la résine la plus adaptée à votre souvenir." },
+              { num: "04", icon: "💌", title: "Je vous livre", desc: "Votre création unique vous parvient, emballée avec amour, prête à vous émouvoir." },
+            ].map((step, i) => (
+              <FadeIn key={step.num} delay={i * 80}>
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mx-auto" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    {step.icon}
+                  </div>
+                  <p className="text-xs font-medium" style={{ color: "#c0826a" }}>{step.num}</p>
+                  <p className="font-serif font-semibold text-white">{step.title}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: "#c8b49a" }}>{step.desc}</p>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
         </div>
 
-        {/* Grille */}
-        {loading ? (
-          <ProductGridSkeleton count={8} />
-        ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {filtered.map((p) => <ProductCard key={p.id} product={p} />)}
+        {/* Vague bas */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 60 }}>
+          <svg viewBox="0 0 1440 60" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+            <path d="M0,60 C480,0 960,0 1440,60 L1440,60 L0,60 Z" fill="#fdf8f4" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ── APERÇU CRÉATIONS ── */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <FadeIn>
+          <div className="text-center mb-12">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] mb-3" style={{ color: "#c0826a" }}>Un aperçu de l&apos;atelier</p>
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Quelques créations récentes</h2>
+            <p className="mt-3 max-w-lg mx-auto leading-relaxed" style={{ color: "#8a6858" }}>
+              Chaque pièce est unique — façonnée à partir de votre souvenir, pour votre histoire.
+            </p>
           </div>
-        ) : (
-          <div className="text-center py-20" style={{ color: "#8a6858" }}>
-            <ShoppingBag size={40} className="mx-auto mb-3" style={{ color: "#e8ddd5" }} />
-            <p>Aucun produit dans cette catégorie.</p>
+        </FadeIn>
+
+        {featuredProducts.length > 0 && (
+          <div className="grid md:grid-cols-3 gap-6">
+            {featuredProducts.map((p, i) => (
+              <FadeIn key={p.id} delay={i * 80}>
+                <Link href={`/produits/${p.slug}`} className="group block rounded-3xl overflow-hidden border transition-shadow hover:shadow-lg" style={{ background: "#fdf3ee", borderColor: "#e8ddd5" }}>
+                  <div className="relative aspect-square overflow-hidden">
+                    {p.imageUrl ? (
+                      <Image
+                        src={p.imageUrl}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: "#f0e4da" }}>
+                        <span className="text-4xl opacity-30">✨</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <p className="font-serif font-semibold" style={{ color: "#3d2b1f" }}>{p.name}</p>
+                    <p className="text-sm mt-1" style={{ color: "#8a6858" }}>Pièce unique · Fait main</p>
+                  </div>
+                </Link>
+              </FadeIn>
+            ))}
           </div>
         )}
 
-        {products.length >= 8 && (
-          <div className="text-center mt-12">
+        <FadeIn>
+          <div className="text-center mt-10">
             <Link
               href="/catalogue"
-              className="inline-flex items-center gap-2 px-8 py-3.5 border-2 font-medium rounded-full transition-all text-sm"
+              className="inline-flex items-center gap-2 px-8 py-3.5 border-2 font-medium rounded-full transition-all hover:bg-[#3d2b1f] hover:text-white text-sm"
               style={{ borderColor: "#3d2b1f", color: "#3d2b1f" }}
             >
-              Voir toute la collection <ArrowRight size={15} />
+              Voir toutes les créations <ArrowRight size={15} />
             </Link>
           </div>
-        )}
+        </FadeIn>
       </section>
 
-      {/* Photos Souvenirs — Polaroïd interactif */}
+      {/* ── PHOTOS SOUVENIRS polaroïd ── */}
       <PolaroidSection />
 
-      {/* Valeurs */}
-      <section style={{ background: "#fdf3ee", borderTop: "1px solid #e8ddd5" }}>
-        <div className="max-w-5xl mx-auto px-4 py-14 grid grid-cols-1 sm:grid-cols-3 gap-10 text-center">
-          {[
-            { icon: "🤱", title: "Créée avec amour", desc: "Chaque pièce naît d'une intention sincère, façonnée à la main avec patience et douceur." },
-            { icon: "✨", title: "Résine & matières vivantes", desc: "Lait maternel, cheveux, fleurs séchées… je préserve ce qui vous est précieux." },
-            { icon: "💌", title: "Proche de vous", desc: "Vous méritez d'être écoutée. Chaque commande est un échange humain, pas une transaction." },
-          ].map((v) => (
-            <div key={v.title} className="flex flex-col items-center gap-3">
-              <span className="text-3xl">{v.icon}</span>
-              <p className="font-serif font-semibold text-lg" style={{ color: "#3d2b1f" }}>{v.title}</p>
-              <p className="text-sm leading-relaxed max-w-52" style={{ color: "#8a6858" }}>{v.desc}</p>
-            </div>
-          ))}
+      {/* ── GRANDE CITATION ── */}
+      <section style={{ background: "#fdf3ee", borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5" }}>
+        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
+          <FadeIn>
+            <Heart size={24} className="mx-auto mb-8" style={{ color: "#c0826a" }} />
+            <p className="font-serif text-2xl md:text-3xl italic leading-relaxed mb-8" style={{ color: "#3d2b1f" }}>
+              &ldquo;Créer un bijou mémoriel, c&apos;est entrer dans l&apos;histoire de quelqu&apos;un.
+              C&apos;est un honneur que je ne prends jamais à la légère.&rdquo;
+            </p>
+            <p className="text-sm font-medium" style={{ color: "#c0826a" }}>— Anaïs</p>
+          </FadeIn>
         </div>
       </section>
 
-      {/* CTA final */}
-      <section style={{ background: "#3d2b1f" }} className="py-16 px-4 text-center">
-        <Sparkles size={24} className="mx-auto mb-5 text-[#c0826a]" />
-        <h2 className="font-serif text-2xl md:text-3xl font-semibold text-white mb-4">
-          Prête à préserver votre histoire ?
-        </h2>
-        <p className="mb-8 max-w-md mx-auto text-sm leading-relaxed" style={{ color: "#c8b49a" }}>
-          Contactez-moi pour une création personnalisée, ou explorez les pièces disponibles.
-          Je serai ravie d&apos;échanger avec vous.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            href="/catalogue"
-            className="flex items-center justify-center gap-2 px-7 py-3.5 bg-[#c0826a] text-white font-medium rounded-full hover:bg-[#a86d58] transition-colors text-sm"
-          >
-            Voir les créations <ArrowRight size={15} />
-          </Link>
-          <Link
-            href="/contact"
-            className="flex items-center justify-center gap-2 px-7 py-3.5 border border-white/20 text-white/80 font-medium rounded-full hover:bg-white/10 transition-colors text-sm"
-          >
-            Me contacter
-          </Link>
+      {/* ── CTA CONTACT ── */}
+      <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+        <div className="rounded-3xl p-10 md:p-14 text-center" style={{ background: "linear-gradient(135deg, #3d2b1f, #5a3e2e)" }}>
+          <FadeIn>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] mb-4" style={{ color: "#c0826a" }}>Votre histoire mérite d&apos;être préservée</p>
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white mb-5">
+              Parlons de votre projet
+            </h2>
+            <p className="max-w-md mx-auto leading-relaxed mb-10" style={{ color: "#c8b49a" }}>
+              Vous avez un souvenir à préserver ? Un projet qui vous tient à cœur ?
+              Écrivez-moi — je serai ravie d&apos;échanger avec vous et de créer quelque chose d&apos;unique ensemble.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/contact"
+                className="flex items-center justify-center gap-2 px-8 py-4 font-medium rounded-full transition-all text-sm"
+                style={{ background: "#c0826a", color: "white" }}
+              >
+                <Mail size={15} /> Me contacter
+              </Link>
+              <Link
+                href="/catalogue"
+                className="flex items-center justify-center gap-2 px-8 py-4 border border-white/20 text-white/80 font-medium rounded-full hover:bg-white/10 transition-colors text-sm"
+              >
+                Voir les créations <ArrowRight size={15} />
+              </Link>
+            </div>
+          </FadeIn>
         </div>
       </section>
 
@@ -236,47 +289,31 @@ export default function HomePage() {
   );
 }
 
-function HeroTile({ product }: { product: Product }) {
-  const { addItem } = useCart();
-  return (
-    <Link href={`/produits/${product.slug}`} className="group relative overflow-hidden aspect-square block" style={{ background: "#f5ede6" }}>
-      {product.imageUrl ? (
-        <Image
-          src={product.imageUrl}
-          alt={product.name}
-          fill
-          sizes="(max-width: 768px) 50vw, 25vw"
-          className="object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <ShoppingBag size={32} style={{ color: "#e8ddd5" }} />
-        </div>
-      )}
-      <div className="absolute inset-x-0 bottom-0 p-4 translate-y-1 group-hover:translate-y-0 transition-transform duration-300" style={{ background: "linear-gradient(to top, rgba(61,43,31,0.85), rgba(61,43,31,0.2), transparent)" }}>
-        <p className="text-white text-sm font-serif font-medium truncate">{product.name}</p>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-sm font-semibold" style={{ color: "#e8c4a8" }}>{formatPrice(product.price)}</span>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              addItem({ cartItemId: product.id, productId: product.id, name: product.name, price: product.price, basePrice: product.price, imageUrl: product.imageUrl, quantity: 1 });
-            }}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ background: "rgba(255,255,255,0.15)" }}
-          >
-            <ShoppingBag size={13} className="text-white" />
-          </button>
-        </div>
-      </div>
-    </Link>
-  );
-}
+/* ── Animation fade-in au scroll ── */
+function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
 
-function EmptyTile() {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.style.transition = `opacity 0.75s ease ${delay}ms, transform 0.75s ease ${delay}ms`;
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [delay]);
+
   return (
-    <div className="aspect-square flex items-center justify-center" style={{ background: "#f5ede6" }}>
-      <ShoppingBag size={28} style={{ color: "#e8ddd5" }} />
+    <div ref={ref} className={className} style={{ opacity: 0, transform: "translateY(28px)" }}>
+      {children}
     </div>
   );
 }
