@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Fond rond brun chaud -->
+  <rect width="32" height="32" rx="8" fill="#3d2b1f"/>
+  <!-- Diamant stylisé -->
+  <!-- Rangée du haut (facettes supérieures) -->
+  <polygon points="16,6 22,13 16,11" fill="#e8d5b0"/>
+  <polygon points="16,6 10,13 16,11" fill="#c8b49a"/>
+  <!-- Ceinture centrale -->
+  <polygon points="10,13 16,11 16,13" fill="#d4c4a0"/>
+  <polygon points="22,13 16,11 16,13" fill="#b8a080"/>
+  <!-- Pavillon (bas) -->
+  <polygon points="10,13 16,13 12,20" fill="#c0583a"/>
+  <polygon points="22,13 16,13 20,20" fill="#8b3a22"/>
+  <polygon points="12,20 16,13 20,20 16,26" fill="#d4693a"/>
+</svg>
