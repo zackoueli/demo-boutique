@@ -393,6 +393,23 @@ export default function CheckoutPage() {
           }
         })
       );
+      // Envoi email de confirmation (fire & forget — ne bloque pas la redirection)
+      fetch("/api/send-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          userEmail: form.email,
+          items: sanitizedItems,
+          shipping: shippingData,
+          subtotal: total,
+          shippingCost,
+          discount,
+          promoCode: promoResult?.code ?? null,
+          total: finalTotal,
+        }),
+      }).catch(() => {}); // échec silencieux côté client
+
       clearCart();
       router.push(`/confirmation/${orderId}`);
     } catch {

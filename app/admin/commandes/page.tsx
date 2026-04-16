@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Search, RefreshCw, Home, Store } from "lucide-react";
+import InvoiceButton from "@/app/ui/invoice-button";
 
 const STATUSES: Order["status"][] = ["pending", "processing", "shipped", "delivered", "cancelled"];
 
@@ -338,6 +339,9 @@ export default function AdminCommandesPage() {
                           </div>
                         </div>
                         <p className="text-xs font-mono text-brown-light mt-4 break-all">{order.id}</p>
+                        <div className="mt-4">
+                          <InvoiceButton order={order} variant="outline" className="w-full justify-center" />
+                        </div>
                       </div>
                     </div>
                   </div>

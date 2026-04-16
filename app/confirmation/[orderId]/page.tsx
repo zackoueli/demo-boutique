@@ -7,6 +7,7 @@ import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { CheckCircle, ArrowRight } from "lucide-react";
+import InvoiceButton from "@/app/ui/invoice-button";
 
 export default function ConfirmationPage(props: { params: Promise<{ orderId: string }> }) {
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -93,10 +94,11 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
           </div>
         )}
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
           <Link href="/compte" className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-medium text-brown-mid hover:bg-sand transition-colors">
             Voir mes commandes
           </Link>
+          {order && <InvoiceButton order={order} variant="outline" />}
           <Link href="/catalogue" className="flex items-center justify-center gap-2 px-6 py-3 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors">
             Continuer mes achats <ArrowRight size={14} />
           </Link>

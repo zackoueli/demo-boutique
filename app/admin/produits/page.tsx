@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, orderBy, query,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import type { Product, CustomizationField } from "@/lib/types";
 import { formatPrice, slugify } from "@/lib/utils";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, X, ImageIcon, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ImageIcon, Wand2, ChevronDown, ChevronUp, Upload, Loader2 } from "lucide-react";
 
 const EMPTY_FORM = {
   name: "", description: "", price: "",
@@ -37,6 +38,10 @@ export default function AdminProduitsPage() {
   const [customFields, setCustomFields] = useState<CustomizationField[]>([]);
   const [showCustomSection, setShowCustomSection] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   async function load() {
     try {
@@ -48,11 +53,74 @@ export default function AdminProduitsPage() {
 
   useEffect(() => { load(); }, []);
 
+  const uploadImage = useCallback(async (file: File): Promise<string> => {
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const storageRef = ref(storage, path);
+    const task = uploadBytesResumable(storageRef, file);
+
+    return new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snap) => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+        (err) => { setUploadProgress(null); reject(err); },
+        async () => {
+          setUploadProgress(null);
+          const url = await getDownloadURL(task.snapshot.ref);
+          resolve(url);
+        }
+      );
+    });
+  }, []);
+
+  async function handleFileDrop(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    try {
+      const url = await uploadImage(file);
+      setForm((f) => ({ ...f, imageUrl: url }));
+    } catch (err) {
+      console.error("Upload failed:", err);
+    }
+  }
+
+  function onDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current++;
+    if (dragCounter.current === 1) setIsDragging(true);
+  }
+
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setIsDragging(false);
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileDrop(file);
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleFileDrop(file);
+    e.target.value = "";
+  }
+
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setCustomFields([]);
     setShowCustomSection(false);
+    setUploadProgress(null);
+    dragCounter.current = 0;
+    setIsDragging(false);
     setShowModal(true);
   }
 
@@ -66,6 +134,9 @@ export default function AdminProduitsPage() {
     });
     setCustomFields(p.customizationFields ?? []);
     setShowCustomSection((p.customizationFields ?? []).length > 0);
+    setUploadProgress(null);
+    dragCounter.current = 0;
+    setIsDragging(false);
     setShowModal(true);
   }
 
@@ -221,27 +292,70 @@ export default function AdminProduitsPage() {
 
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
 
-              {/* Aperçu image */}
-              <div className="relative h-40 bg-sand border border-border rounded-2xl overflow-hidden flex items-center justify-center">
-                {form.imageUrl ? (
-                  <Image src={form.imageUrl} alt="aperçu" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" onError={() => setForm((f) => ({ ...f, imageUrl: "" }))} />
+              {/* Zone drag & drop + aperçu */}
+              <div
+                onDragEnter={onDragEnter}
+                onDragLeave={onDragLeave}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onClick={() => !form.imageUrl && fileInputRef.current?.click()}
+                className={`relative h-44 rounded-2xl overflow-hidden border-2 transition-colors ${
+                  isDragging
+                    ? "border-terracotta bg-terracotta/5 border-solid"
+                    : form.imageUrl
+                    ? "border-border bg-sand"
+                    : "border-dashed border-border bg-sand hover:border-brown-light cursor-pointer"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
+
+                {uploadProgress !== null ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-sand/80">
+                    <Loader2 size={24} className="text-terracotta animate-spin" />
+                    <div className="w-32 h-1.5 bg-border rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-terracotta rounded-full transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-brown-light">{uploadProgress}%</span>
+                  </div>
+                ) : form.imageUrl ? (
+                  <>
+                    <Image src={form.imageUrl} alt="aperçu" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" onError={() => setForm((f) => ({ ...f, imageUrl: "" }))} />
+                    <div className="absolute inset-0 bg-brown/0 hover:bg-brown/30 transition-colors flex items-center justify-center group">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-cream/90 text-brown text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                      >
+                        <Upload size={12} /> Remplacer
+                      </button>
+                    </div>
+                  </>
                 ) : (
-                  <div className="flex flex-col items-center gap-2 text-brown-light">
-                    <ImageIcon size={24} />
-                    <span className="text-xs">L&apos;aperçu s&apos;affiche ici</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-brown-light pointer-events-none">
+                    {isDragging ? (
+                      <>
+                        <Upload size={28} className="text-terracotta" />
+                        <span className="text-sm text-terracotta font-medium">Déposer l&apos;image</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon size={28} />
+                        <span className="text-sm font-medium text-brown-mid">Glissez une image ici</span>
+                        <span className="text-xs">ou cliquez pour sélectionner</span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
-
-              <FormField label="URL de l'image" required={false}>
-                <input
-                  type="url"
-                  value={form.imageUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-                  placeholder="https://firebasestorage.googleapis.com/..."
-                  className={inputCls}
-                />
-              </FormField>
 
               <FormField label="URLs images supplémentaires" required={false}>
                 <textarea
