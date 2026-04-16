@@ -15,10 +15,7 @@ import ProductCard from "@/app/ui/product-card";
 import ProductReviews from "@/app/ui/product-reviews";
 import WishlistButton from "@/app/ui/wishlist-button";
 import ShareButtons from "@/app/ui/share-buttons";
-
-const CATEGORY_LABELS: Record<Product["category"], string> = {
-  rings: "Bague", necklaces: "Collier", bracelets: "Bracelet", earrings: "Boucles d'oreilles",
-};
+import { useCategories } from "@/lib/categories";
 
 type Tab = "description" | "materials" | "care";
 
@@ -190,6 +187,7 @@ function CustomizationInput({
 }
 
 export default function ProductClient(props: { params: Promise<{ slug: string }> }) {
+  const { categories } = useCategories();
   const [slug, setSlug] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
@@ -309,7 +307,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
 
           <div className="flex flex-col py-2">
             <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-3">
-              {CATEGORY_LABELS[product.category]}
+              {categories.find((c) => c.key === product.category)?.label ?? product.category}
             </p>
             <div className="flex items-start justify-between gap-3 mb-4">
               <h1 className="font-serif text-3xl font-semibold text-brown leading-tight">{product.name}</h1>

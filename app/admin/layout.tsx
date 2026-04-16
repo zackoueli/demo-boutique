@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
-import { LayoutDashboard, Package, ShoppingCart, Shield, Tag, MessageSquare, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Shield, Tag, MessageSquare, ChevronLeft, ChevronRight, Camera, FolderOpen } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/produits", label: "Produits", icon: Package },
+  { href: "/admin/categories", label: "Catégories", icon: FolderOpen },
   { href: "/admin/commandes", label: "Commandes", icon: ShoppingCart },
   { href: "/admin/promos", label: "Codes promo", icon: Tag },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },

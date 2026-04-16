@@ -170,10 +170,13 @@ export default function AdminPhotosPage() {
               <div className="relative aspect-square bg-sand">
                 <Image src={photo.url} alt={photo.caption} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
                 <button
-                  onClick={() => deletePhoto(photo.id, photo.storagePath)}
-                  className="absolute top-2 right-2 p-1.5 bg-brown/0 hover:bg-terracotta text-cream/0 hover:text-cream rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                  onClick={() => {
+                    if (confirm("Supprimer cette photo ?")) deletePhoto(photo.id, photo.storagePath);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-black/30 hover:bg-red-500 text-white rounded-lg transition-colors"
+                  title="Supprimer"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </button>
               </div>
               <div className="p-3">

@@ -15,7 +15,8 @@ export interface Product {
   slug: string;
   description: string;
   price: number; // cents
-  category: "rings" | "necklaces" | "bracelets" | "earrings";
+  category: string;
+  subCategory?: string;
   imageUrl: string;
   imageStoragePath: string;
   images?: string[]; // galerie multi-photos

@@ -11,10 +11,12 @@ import type { Product, CustomizationField } from "@/lib/types";
 import { formatPrice, slugify } from "@/lib/utils";
 import Image from "next/image";
 import { Plus, Pencil, Trash2, X, ImageIcon, Wand2, ChevronDown, ChevronUp, Upload, Loader2 } from "lucide-react";
+import { useCategories } from "@/lib/categories";
 
 const EMPTY_FORM = {
   name: "", description: "", price: "",
-  category: "rings" as Product["category"],
+  category: "",
+  subCategory: "",
   stock: "", featured: false,
   imageUrl: "", images: "",
   materials: "", careInstructions: "",
@@ -32,6 +34,7 @@ const inputCls = "w-full px-4 py-3 border border-border rounded-xl text-sm bg-cr
 export default function AdminProduitsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { categories } = useCategories();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -128,7 +131,8 @@ export default function AdminProduitsPage() {
     setEditing(p);
     setForm({
       name: p.name, description: p.description, price: String(p.price / 100),
-      category: p.category, stock: String(p.stock), featured: p.featured,
+      category: p.category, subCategory: p.subCategory ?? "",
+      stock: String(p.stock), featured: p.featured,
       imageUrl: p.imageUrl, images: (p.images ?? []).join("\n"),
       materials: p.materials ?? "", careInstructions: p.careInstructions ?? "",
     });
@@ -151,7 +155,8 @@ export default function AdminProduitsPage() {
 
       const data = {
         name: form.name, slug: slugify(form.name), description: form.description,
-        price: Math.round(parseFloat(form.price) * 100), category: form.category,
+        price: Math.round(parseFloat(form.price) * 100),
+        category: form.category, subCategory: form.subCategory || "",
         stock: parseInt(form.stock), featured: form.featured,
         imageUrl: form.imageUrl, imageStoragePath: "",
         images: extraImages.length ? extraImages : [],
@@ -247,7 +252,14 @@ export default function AdminProduitsPage() {
                       <span className="font-medium text-brown truncate max-w-40">{p.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-brown-light capitalize">{p.category}</td>
+                  <td className="px-4 py-3 text-brown-light">
+                    <span>{categories.find((c) => c.key === p.category)?.label ?? p.category}</span>
+                    {p.subCategory && (
+                      <span className="text-xs text-brown-light/70 block">
+                        {categories.find((c) => c.key === p.category)?.subCategories?.find((s) => s.key === p.subCategory)?.label ?? p.subCategory}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right font-semibold text-terracotta">{formatPrice(p.price)}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={p.stock === 0 ? "text-red-500" : "text-brown-mid"}>{p.stock}</span>
@@ -386,13 +398,36 @@ export default function AdminProduitsPage() {
               </div>
 
               <FormField label="Catégorie" required>
-                <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as Product["category"] }))} className={inputCls}>
-                  <option value="rings">Bagues</option>
-                  <option value="necklaces">Colliers</option>
-                  <option value="bracelets">Bracelets</option>
-                  <option value="earrings">Boucles d&apos;oreilles</option>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value, subCategory: "" }))}
+                  className={inputCls}
+                  required
+                >
+                  <option value="">— Choisir une catégorie —</option>
+                  {categories.map((cat) => (
+                    <option key={cat.key} value={cat.key}>{cat.label}</option>
+                  ))}
                 </select>
               </FormField>
+
+              {form.category && (() => {
+                const cat = categories.find((c) => c.key === form.category);
+                return cat && (cat.subCategories ?? []).length > 0 ? (
+                  <FormField label="Sous-catégorie">
+                    <select
+                      value={form.subCategory}
+                      onChange={(e) => setForm((f) => ({ ...f, subCategory: e.target.value }))}
+                      className={inputCls}
+                    >
+                      <option value="">— Aucune sous-catégorie —</option>
+                      {cat.subCategories.map((sub) => (
+                        <option key={sub.key} value={sub.key}>{sub.label}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                ) : null;
+              })()}
 
               <FormField label="Matériaux">
                 <textarea
