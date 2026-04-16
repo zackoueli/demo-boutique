@@ -28,12 +28,14 @@ function CatalogueContent() {
     async function load() {
       setLoading(true);
       try {
-        const q = activeCategory
-          ? query(collection(db, "products"), where("category", "==", activeCategory), orderBy("createdAt", "desc"))
-          : query(collection(db, "products"), orderBy("createdAt", "desc"));
+        // Charge tous les produits puis filtre côté client
+        // pour éviter les problèmes d'index Firestore composite
+        const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const snap = await getDocs(q);
-        setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)));
-      } catch {
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
+        setProducts(activeCategory ? all.filter((p) => p.category === activeCategory) : all);
+      } catch (err) {
+        console.error("Catalogue load error:", err);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -43,7 +45,7 @@ function CatalogueContent() {
   }, [activeCategory]);
 
   function setCategory(cat: string) {
-    router.replace(cat ? `/catalogue?category=${cat}` : "/catalogue");
+    router.push(cat ? `/catalogue?category=${cat}` : "/catalogue");
   }
 
   return (
