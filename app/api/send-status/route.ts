@@ -84,7 +84,7 @@ function buildHtml(d: StatusPayload): string {
         <tr><td style="background:#3d2b1f;padding:24px 40px;text-align:center;">
           <p style="margin:0;color:#c8b49a;font-size:12px;line-height:1.6;">
             Une question ? Répondez à cet email ou contactez-nous.<br>
-            <span style="color:#8b7060;">© ${new Date().getFullYear()} — Histoire Éternelle L'Atelier</span>
+            <span style="color:#8b7060;">© ${new Date().getFullYear()} — Histoire Eternelle - L'Atelier d'Anaïs</span>
           </p>
         </td></tr>
 

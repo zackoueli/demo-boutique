@@ -23,7 +23,7 @@ export default function CGVPage() {
           <h2 className="font-serif text-xl font-semibold text-brown">1. Objet</h2>
           <p>
             Les présentes Conditions Générales de Vente (CGV) s&apos;appliquent à toutes les ventes conclues sur le site
-            <strong className="text-brown"> histoire-eternelle-l-atelier.fr</strong> entre Histoire Éternelle L&apos;Atelier et
+            <strong className="text-brown"> histoire-eternelle-l-atelier.fr</strong> entre Histoire Eternelle - L&apos;Atelier d&apos;Anaïs et
             tout client (particulier ou professionnel) souhaitant effectuer un achat.
           </p>
         </section>
@@ -41,7 +41,7 @@ export default function CGVPage() {
         <section className="space-y-3">
           <h2 className="font-serif text-xl font-semibold text-brown">3. Prix</h2>
           <p>
-            Les prix sont indiqués en euros toutes taxes comprises (TTC). Histoire Éternelle L&apos;Atelier se réserve
+            Les prix sont indiqués en euros toutes taxes comprises (TTC). Histoire Eternelle - L&apos;Atelier d&apos;Anaïs se réserve
             le droit de modifier ses prix à tout moment. Les produits sont facturés au tarif en vigueur au moment
             de la validation de la commande.
           </p>
@@ -55,7 +55,7 @@ export default function CGVPage() {
           <h2 className="font-serif text-xl font-semibold text-brown">4. Commande</h2>
           <p>
             La commande est validée après confirmation du paiement. Un email de confirmation récapitulant les
-            détails de votre commande vous est envoyé automatiquement. Histoire Éternelle L&apos;Atelier se réserve
+            détails de votre commande vous est envoyé automatiquement. Histoire Eternelle - L&apos;Atelier d&apos;Anaïs se réserve
             le droit d&apos;annuler toute commande en cas de rupture de stock ou d&apos;erreur manifeste de prix, après
             en avoir informé le client.
           </p>
@@ -76,7 +76,7 @@ export default function CGVPage() {
             réception du paiement. Les délais de livraison sont donnés à titre indicatif et peuvent varier.
           </p>
           <p>
-            En cas de retard d&apos;expédition, nous vous en informons par email. Histoire Éternelle L&apos;Atelier ne
+            En cas de retard d&apos;expédition, nous vous en informons par email. Histoire Eternelle - L&apos;Atelier d&apos;Anaïs ne
             saurait être tenu responsable de retards imputables au transporteur.
           </p>
         </section>

@@ -131,7 +131,7 @@ function buildHtml(d: ConfirmationPayload): string {
         <tr><td style="background:#3d2b1f;padding:24px 40px;text-align:center;">
           <p style="margin:0;color:#c8b49a;font-size:12px;line-height:1.6;">
             Vous avez une question ? Répondez à cet email ou contactez-nous via votre espace client.<br>
-            <span style="color:#8b7060;">© ${new Date().getFullYear()} — Histoire Éternelle L&apos;Atelier</span>
+            <span style="color:#8b7060;">© ${new Date().getFullYear()} — Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</span>
           </p>
         </td></tr>
 

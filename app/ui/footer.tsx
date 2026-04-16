@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="border-t border-border bg-sand mt-auto">
       <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
         <div className="md:col-span-1">
-          <p className="font-serif text-lg font-semibold text-brown mb-3">Histoire Éternelle L&apos;Atelier</p>
+          <p className="font-serif text-lg font-semibold text-brown mb-3">Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</p>
           <p className="text-sm text-brown-light leading-relaxed max-w-56">
             Des bijoux artisanaux façonnés à la main, pour célébrer chaque moment qui compte.
           </p>
@@ -42,7 +42,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-brown-light">
-        © {new Date().getFullYear()} Histoire Éternelle L&apos;Atelier — Créations artisanales
+        © {new Date().getFullYear()} Histoire Eternelle - L&apos;Atelier d&apos;Anaïs — Créations artisanales
       </div>
     </footer>
   );

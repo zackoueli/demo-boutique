@@ -22,7 +22,7 @@ export default function ConfidentialitePage() {
         <section className="space-y-3">
           <h2 className="font-serif text-xl font-semibold text-brown">1. Responsable du traitement</h2>
           <p>
-            Le responsable du traitement de vos données personnelles est <strong className="text-brown">Histoire Éternelle L&apos;Atelier</strong>.
+            Le responsable du traitement de vos données personnelles est <strong className="text-brown">Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</strong>.
             Pour toute question relative à vos données, contactez-nous à{" "}
             <a href="mailto:contact@histoire-eternelle-l-atelier.fr" className="text-terracotta hover:underline">
               contact@histoire-eternelle-l-atelier.fr

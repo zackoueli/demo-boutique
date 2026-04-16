@@ -22,7 +22,7 @@ export default function MentionsLegalesPage() {
           <h2 className="font-serif text-xl font-semibold text-brown">Éditeur du site</h2>
           <p>Le site <strong className="text-brown">histoire-eternelle-l-atelier.fr</strong> est édité par :</p>
           <div className="bg-sand rounded-2xl p-5 space-y-1 text-brown-mid">
-            <p><strong>Histoire Éternelle L&apos;Atelier</strong></p>
+            <p><strong>Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</strong></p>
             <p>Forme juridique : [À compléter — ex : Auto-entrepreneur / SASU]</p>
             <p>SIRET : [À compléter]</p>
             <p>Adresse : [À compléter]</p>
@@ -43,7 +43,7 @@ export default function MentionsLegalesPage() {
           <h2 className="font-serif text-xl font-semibold text-brown">Propriété intellectuelle</h2>
           <p>
             L&apos;ensemble du contenu de ce site (textes, images, visuels, logos) est la propriété exclusive de
-            Histoire Éternelle L&apos;Atelier et est protégé par les lois françaises et internationales relatives
+            Histoire Eternelle - L&apos;Atelier d&apos;Anaïs et est protégé par les lois françaises et internationales relatives
             à la propriété intellectuelle. Toute reproduction, représentation ou diffusion, en tout ou partie,
             est interdite sans autorisation préalable écrite.
           </p>
@@ -52,7 +52,7 @@ export default function MentionsLegalesPage() {
         <section className="space-y-3">
           <h2 className="font-serif text-xl font-semibold text-brown">Responsabilité</h2>
           <p>
-            Histoire Éternelle L&apos;Atelier s&apos;efforce d&apos;assurer l&apos;exactitude et la mise à jour des informations
+            Histoire Eternelle - L&apos;Atelier d&apos;Anaïs s&apos;efforce d&apos;assurer l&apos;exactitude et la mise à jour des informations
             diffusées sur ce site. Toutefois, des erreurs ou omissions peuvent survenir. L&apos;éditeur ne saurait
             être tenu responsable de l&apos;utilisation faite de ces informations.
           </p>

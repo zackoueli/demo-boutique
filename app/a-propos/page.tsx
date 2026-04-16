@@ -20,7 +20,7 @@ export default function AProposPage() {
             <em className="text-terracotta not-italic">raconte une histoire</em>
           </h1>
           <p className="text-brown-light leading-relaxed max-w-xl mx-auto text-base">
-            Histoire Éternelle L&apos;Atelier est né d&apos;une passion pour l&apos;artisanat d&apos;art et du désir de créer
+            Histoire Eternelle - L&apos;Atelier d&apos;Anaïs est né d&apos;une passion pour l&apos;artisanat d&apos;art et du désir de créer
             des pièces uniques qui traversent le temps.
           </p>
         </div>
