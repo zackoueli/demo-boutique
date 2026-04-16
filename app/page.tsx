@@ -9,11 +9,12 @@ import Image from "next/image";
 import { ArrowRight, Mail, MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCategories } from "@/lib/categories";
+import type { Category } from "@/lib/categories";
 const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const { categories } = useCategories();
+  const { categories }: { categories: Category[] } = useCategories();
 
   useEffect(() => {
     async function load() {
