@@ -110,7 +110,7 @@ export default function HomePage() {
         <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
           <div>
             <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Nos créations</p>
-            <h2 className="font-serif text-3xl font-semibold text-brown">Bijoux artisanaux</h2>
+            <h2 className="font-serif text-3xl font-semibold text-brown">Nos créations</h2>
           </div>
           <Link href="/catalogue" className="text-sm text-brown-light hover:text-terracotta flex items-center gap-1 transition-colors">
             Tout voir <ArrowRight size={14} />

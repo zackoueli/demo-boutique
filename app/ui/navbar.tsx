@@ -19,7 +19,7 @@ export default function Navbar() {
       <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
         <Link href="/" className="font-serif text-xl font-semibold tracking-wide text-brown">
-          Bijoux & Co
+          Histoire Éternelle
         </Link>
 
         <div className="hidden md:flex items-center gap-8 text-sm text-brown-mid">

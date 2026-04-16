@@ -223,7 +223,7 @@ export default function InvoiceButton({ order, variant = "default", className }:
       doc.setTextColor(200, 180, 154);
       doc.text("Merci pour votre confiance.", W / 2, footerY + 3, { align: "center" });
       doc.setTextColor(139, 111, 94);
-      doc.text(`© ${new Date().getFullYear()} — Boutique`, W / 2, footerY + 8, { align: "center" });
+      doc.text(`© ${new Date().getFullYear()} — Histoire Éternelle L'Atelier`, W / 2, footerY + 8, { align: "center" });
 
       doc.save(`facture-${order.id}.pdf`);
     } finally {
