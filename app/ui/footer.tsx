@@ -41,8 +41,9 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-border py-4 text-center text-xs text-brown-light">
-        © {new Date().getFullYear()} Histoire Eternelle - L&apos;Atelier d&apos;Anaïs — Créations artisanales
+      <div className="border-t border-border py-4 text-center text-xs text-brown-light space-y-1">
+        <p>© {new Date().getFullYear()} Histoire Eternelle - L&apos;Atelier d&apos;Anaïs — Créations artisanales</p>
+        <p>Site créé par <a href="https://breizhapp.tech" target="_blank" rel="noopener noreferrer" className="hover:text-terracotta transition-colors">BreizhApp</a></p>
       </div>
     </footer>
   );
