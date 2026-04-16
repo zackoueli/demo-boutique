@@ -11,6 +11,8 @@ import { ArrowRight, ShoppingBag } from "lucide-react";
 import { ProductGridSkeleton } from "./ui/skeletons";
 import { formatPrice } from "@/lib/utils";
 import { useCart } from "@/lib/cart-context";
+import dynamic from "next/dynamic";
+const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
 
 const CATEGORIES = [
   { key: "", label: "Tous" },
@@ -159,6 +161,9 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Photos Souvenirs — Polaroïd interactif */}
+      <PolaroidSection />
 
       {/* Valeurs */}
       <section className="bg-sand border-t border-border">
