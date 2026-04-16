@@ -6,7 +6,7 @@ import { usePhotos } from "@/lib/use-photos";
 
 const ROTATIONS = [-8, 5, -3, 7, -6, 4, -5, 8];
 const MAX_TRAIL = 8;
-const MIN_DISTANCE = 60;
+const MIN_DISTANCE = 85;
 
 interface TrailItem {
   x: number;
