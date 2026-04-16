@@ -1,7 +1,6 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM ?? "commandes@demo-boutique.fr";
 
 interface OrderItem {
@@ -148,10 +147,11 @@ export async function POST(req: NextRequest) {
     const body: ConfirmationPayload = await req.json();
 
     if (!process.env.RESEND_API_KEY) {
-      // Pas de clé configurée → on log et on retourne OK pour ne pas bloquer le checkout
       console.warn("[send-confirmation] RESEND_API_KEY manquante — email non envoyé.");
       return NextResponse.json({ ok: true, skipped: true });
     }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const { error } = await resend.emails.send({
       from: FROM,
