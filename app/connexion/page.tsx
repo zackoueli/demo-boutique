@@ -51,7 +51,7 @@ export default function ConnexionPage() {
       <div className="w-full max-w-md">
 
         <div className="text-center mb-10">
-          <Link href="/" className="font-serif text-2xl font-semibold text-brown">Bijoux & Co</Link>
+          <Link href="/" className="font-serif text-2xl font-semibold text-brown">Histoire Éternelle</Link>
           <p className="text-brown-light mt-3 text-sm">
             {mode === "login" ? "Bon retour parmi nous" : "Rejoignez notre communauté"}
           </p>
