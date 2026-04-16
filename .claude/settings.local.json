@@ -4,7 +4,24 @@
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
       "Bash(powershell.exe -Command \"gh auth status\")",
-      "Bash(powershell.exe -Command \"& 'C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe' repo create demo-boutique --public --source=. --remote=origin --push 2>&1\")"
+      "Bash(powershell.exe -Command \"& 'C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe' repo create demo-boutique --public --source=. --remote=origin --push 2>&1\")",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web status)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web remote -v)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --oneline -3)",
+      "Bash(git add:*)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web add package.json package-lock.json)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web commit -m ':*)",
+      "Bash(gh repo:*)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --oneline)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web push --force)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log -1 --format=\"%an <%ae>\")",
+      "Bash(gh api:*)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web config user.name \"zackoueli\")",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web config user.email \"zackoueli@users.noreply.github.com\")",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --format=\"%an <%ae> — %s\" -3)",
+      "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --format=\"%an <%ae> — %s\")",
+      "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => k.toLowerCase\\(\\).includes\\('insta'\\) || k.toLowerCase\\(\\).includes\\('face'\\) || k.toLowerCase\\(\\).includes\\('twitter'\\) || k.toLowerCase\\(\\).includes\\('social'\\)\\)\\)\")",
+      "Bash(npm install *)"
     ]
   }
 }

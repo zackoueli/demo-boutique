@@ -5,6 +5,7 @@ import "./globals.css";
 import Providers from "./ui/providers";
 import Navbar from "./ui/navbar";
 import Footer from "./ui/footer";
+import CookieBanner from "./ui/cookie-banner";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const playfair = Playfair_Display({
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />
+          <CookieBanner />
         </Providers>
       </body>
     </html>

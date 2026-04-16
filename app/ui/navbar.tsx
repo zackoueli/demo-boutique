@@ -25,6 +25,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8 text-sm text-brown-mid">
           <Link href="/" className="hover:text-brown transition-colors">Accueil</Link>
           <Link href="/catalogue" className="hover:text-brown transition-colors">Catalogue</Link>
+          <Link href="/a-propos" className="hover:text-brown transition-colors">À propos</Link>
           <Link href="/contact" className="hover:text-brown transition-colors">Contact</Link>
           {isAdmin && (
             <Link href="/admin" className="flex items-center gap-1 text-terracotta hover:text-terra-light transition-colors">

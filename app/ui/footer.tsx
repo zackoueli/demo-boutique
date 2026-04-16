@@ -3,12 +3,15 @@ import Link from "next/link";
 export default function Footer() {
   return (
     <footer className="border-t border-border bg-sand mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-3 gap-10">
-        <div>
+      <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="md:col-span-1">
           <p className="font-serif text-lg font-semibold text-brown mb-3">Histoire Éternelle L&apos;Atelier</p>
           <p className="text-sm text-brown-light leading-relaxed max-w-56">
             Des bijoux artisanaux façonnés à la main, pour célébrer chaque moment qui compte.
           </p>
+          <Link href="/a-propos" className="inline-block mt-4 text-xs text-terracotta hover:text-terra-light transition-colors font-medium">
+            Notre histoire →
+          </Link>
         </div>
         <div>
           <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Catalogue</p>
@@ -26,6 +29,15 @@ export default function Footer() {
             <li><Link href="/panier" className="hover:text-terracotta transition-colors">Mon panier</Link></li>
             <li><Link href="/messages" className="hover:text-terracotta transition-colors">Mes messages</Link></li>
             <li><Link href="/contact" className="hover:text-terracotta transition-colors">Nous contacter</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Informations</p>
+          <ul className="space-y-2 text-sm text-brown-light">
+            <li><Link href="/a-propos" className="hover:text-terracotta transition-colors">À propos</Link></li>
+            <li><Link href="/cgv" className="hover:text-terracotta transition-colors">CGV</Link></li>
+            <li><Link href="/mentions-legales" className="hover:text-terracotta transition-colors">Mentions légales</Link></li>
+            <li><Link href="/confidentialite" className="hover:text-terracotta transition-colors">Confidentialité</Link></li>
           </ul>
         </div>
       </div>

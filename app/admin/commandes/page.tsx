@@ -65,6 +65,22 @@ export default function AdminCommandesPage() {
   async function updateStatus(docId: string, status: Order["status"]) {
     await updateDoc(doc(db, "orders", docId), { status });
     setOrders((prev) => prev.map((o) => o.docId === docId ? { ...o, status } : o));
+
+    // Email de suivi au client (fire & forget)
+    const order = orders.find((o) => o.docId === docId);
+    if (order) {
+      fetch("/api/send-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          userEmail: order.userEmail,
+          fullName: order.shipping?.fullName ?? order.userEmail,
+          status,
+          total: order.total,
+        }),
+      }).catch(() => {});
+    }
   }
 
   // Stats par statut

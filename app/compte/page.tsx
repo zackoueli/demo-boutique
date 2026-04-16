@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { Package, LogOut } from "lucide-react";
 import { OrderCardSkeleton } from "@/app/ui/skeletons";
+import InvoiceButton from "@/app/ui/invoice-button";
 
 const STATUS_LABELS: Record<Order["status"], string> = {
   pending: "En attente", processing: "En préparation", shipped: "Expédiée", delivered: "Livrée", cancelled: "Annulée",
@@ -122,6 +123,9 @@ export default function ComptePage() {
                       )}
                     </div>
                   ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <InvoiceButton order={order} variant="outline" className="text-xs py-1.5 px-3" />
                 </div>
               </div>
             ))}
