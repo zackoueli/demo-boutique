@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
@@ -9,11 +9,16 @@ type Mode = "login" | "register";
 
 export default function ConnexionPage() {
   const router = useRouter();
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [form, setForm] = useState({ email: "", password: "", displayName: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Redirect après connexion (email ou retour Google redirect)
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -93,7 +98,7 @@ export default function ConnexionPage() {
         </div>
 
         <button
-          onClick={async () => { setLoading(true); setError(""); try { await signInWithGoogle(); router.push("/"); } catch { setError("Connexion Google échouée."); } finally { setLoading(false); } }}
+          onClick={async () => { setLoading(true); setError(""); try { await signInWithGoogle(); } catch { setError("Connexion Google échouée."); setLoading(false); } }}
           disabled={loading}
           className="w-full py-3.5 border border-border rounded-2xl text-sm font-medium text-brown hover:bg-sand transition-colors disabled:opacity-50 flex items-center justify-center gap-3"
         >
