@@ -18,7 +18,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-cream/95 backdrop-blur-sm border-b border-border">
       <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
-        <Link href="/" className="font-serif text-xl font-semibold tracking-wide text-brown">
+        <Link href="/" className="font-serif text-xl font-semibold tracking-wide text-brown truncate min-w-0 max-w-[40vw] md:max-w-none">
           Histoire Eternelle - L&apos;Atelier d&apos;Anaïs
         </Link>
 
