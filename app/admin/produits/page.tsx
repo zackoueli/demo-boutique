@@ -228,7 +228,8 @@ export default function AdminProduitsPage() {
             <button onClick={openCreate} className="mt-3 text-sm text-terracotta hover:text-terra-light font-medium">Créer le premier →</button>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="text-xs text-brown-light uppercase bg-parchment/50 border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left">Produit</th>
@@ -288,6 +289,7 @@ export default function AdminProduitsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
