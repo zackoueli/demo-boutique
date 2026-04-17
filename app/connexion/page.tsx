@@ -98,7 +98,7 @@ export default function ConnexionPage() {
         </div>
 
         <button
-          onClick={async () => { setLoading(true); setError(""); try { await signInWithGoogle(); } catch { setError("Connexion Google échouée."); setLoading(false); } }}
+          onClick={async () => { setLoading(true); setError(""); try { await signInWithGoogle(); router.push("/"); } catch { setError("Connexion Google échouée."); setLoading(false); } }}
           disabled={loading}
           className="w-full py-3.5 border border-border rounded-2xl text-sm font-medium text-brown hover:bg-sand transition-colors disabled:opacity-50 flex items-center justify-center gap-3"
         >

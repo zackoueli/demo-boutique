@@ -6,8 +6,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   type User,
 } from "firebase/auth";
@@ -34,23 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Gérer le retour après redirect Google
-    getRedirectResult(auth).then(async (cred) => {
-      if (cred?.user) {
-        const userRef = doc(db, "users", cred.user.uid);
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
-          await setDoc(userRef, {
-            uid: cred.user.uid,
-            email: cred.user.email ?? "",
-            displayName: cred.user.displayName ?? "",
-            role: "user",
-            createdAt: serverTimestamp(),
-          });
-        }
-      }
-    }).catch(() => {});
-
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
@@ -88,7 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+    const cred = await signInWithPopup(auth, provider);
+    const userRef = doc(db, "users", cred.user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        uid: cred.user.uid,
+        email: cred.user.email ?? "",
+        displayName: cred.user.displayName ?? "",
+        role: "user",
+        createdAt: serverTimestamp(),
+      });
+    }
   }
 
   async function logOut() {
