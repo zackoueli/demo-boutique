@@ -86,7 +86,7 @@ export default function ContactPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-10">
         {/* Infos */}
-        <div className="space-y-6">
+        <div className="space-y-6 order-2 md:order-1">
           <div>
             <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Informations</p>
             <div className="space-y-4 text-sm text-brown-light">
@@ -124,7 +124,7 @@ export default function ContactPage() {
         </div>
 
         {/* Formulaire / Confirmation */}
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 order-1 md:order-2">
           {conversationId ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-5">
