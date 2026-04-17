@@ -105,6 +105,7 @@ export interface Conversation {
   lastMessage?: string;
   lastMessageAt: Date;
   createdAt: Date;
+  adminRead?: boolean;
 }
 
 export interface Message {

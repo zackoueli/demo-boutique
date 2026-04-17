@@ -37,6 +37,8 @@ export default function AdminMessagesPage() {
   // Messages de la conversation sélectionnée
   useEffect(() => {
     if (!selectedId) { setMessages([]); return; }
+    // Marquer comme lu par l'admin
+    updateDoc(doc(db, "conversations", selectedId), { adminRead: true }).catch(() => {});
     const q = query(
       collection(db, "conversations", selectedId, "messages"),
       orderBy("createdAt", "asc")

@@ -436,6 +436,7 @@ function CoupsDeCoeur({ products }: { products: Product[] }) {
             </div>
             <div className="pt-3 pb-1">
               <p className="font-serif font-semibold text-sm truncate" style={{ color: "#3d2b1f" }}>{p.name}</p>
+              <p className="text-sm font-medium mt-1" style={{ color: "#3d2b1f" }}>{p.price?.toFixed(2)} €</p>
               <p className="text-xs mt-0.5" style={{ color: "#b09080" }}>Pièce unique · Fait main</p>
             </div>
           </Link>

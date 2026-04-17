@@ -94,7 +94,7 @@ export default function ContactPage() {
                 <Mail size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-brown-mid">Email</p>
-                  <p>contact@bijouxco.fr</p>
+                  <p>histoireeternelle.latelier@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
