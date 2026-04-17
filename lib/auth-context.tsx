@@ -6,6 +6,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  signInWithPopup,
+  GoogleAuthProvider,
   type User,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -18,6 +20,7 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logOut: () => Promise<void>;
   isAdmin: boolean;
 }
@@ -65,6 +68,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(newProfile);
   }
 
+  async function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    const userRef = doc(db, "users", cred.user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        uid: cred.user.uid,
+        email: cred.user.email ?? "",
+        displayName: cred.user.displayName ?? "",
+        role: "user",
+        createdAt: serverTimestamp(),
+      });
+    }
+  }
+
   async function logOut() {
     await signOut(auth);
     setProfile(null);
@@ -73,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = profile?.role === "admin";
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, logOut, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signInWithGoogle, logOut, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
