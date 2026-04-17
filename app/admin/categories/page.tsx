@@ -102,7 +102,7 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 md:p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Gestion</p>

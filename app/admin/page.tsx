@@ -46,14 +46,14 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-4 md:p-8">
+      <div className="mb-6 md:mb-8">
         <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Espace admin</p>
         <h1 className="font-serif text-2xl font-semibold text-brown">Dashboard</h1>
       </div>
 
       {/* Stats */}
-      <div className="grid sm:grid-cols-3 gap-5 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard label="Commandes" value={loading ? "…" : String(stats.orders)} icon={ShoppingCart} accent="text-blue-600 bg-blue-50" />
         <StatCard label="Chiffre d'affaires" value={loading ? "…" : formatPrice(stats.revenue)} icon={TrendingUp} accent="text-terracotta bg-terra-pale" />
         <StatCard label="Produits" value={loading ? "…" : String(stats.products)} icon={Package} accent="text-green-700 bg-green-50" />
@@ -71,7 +71,8 @@ export default function AdminDashboard() {
         ) : recentOrders.length === 0 ? (
           <div className="py-14 text-center text-brown-light text-sm">Aucune commande pour l&apos;instant.</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="text-xs text-brown-light uppercase bg-parchment/50 border-b border-border">
               <tr>
                 <th className="px-6 py-3 text-left">Référence</th>
@@ -95,6 +96,7 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

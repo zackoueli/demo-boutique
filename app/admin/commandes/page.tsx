@@ -115,9 +115,9 @@ export default function AdminCommandesPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* En-tête */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
           <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Gestion</p>
           <h1 className="font-serif text-2xl font-semibold text-brown">Commandes</h1>
@@ -190,7 +190,7 @@ export default function AdminCommandesPage() {
       )}
 
       {/* Liste */}
-      <div className="bg-sand border border-border rounded-2xl overflow-hidden">
+      <div className="bg-sand border border-border rounded-2xl overflow-x-auto">
         {loading ? (
           <div className="p-6 space-y-3">
             {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-parchment rounded-xl animate-pulse" />)}
@@ -200,7 +200,7 @@ export default function AdminCommandesPage() {
             {orders.length === 0 ? "Aucune commande pour l'instant." : "Aucun résultat pour cette recherche."}
           </div>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border min-w-[600px]">
             {filtered.map((order) => (
               <div key={order.docId}>
                 {/* Ligne principale */}

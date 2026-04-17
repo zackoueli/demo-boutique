@@ -46,8 +46,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
-      {/* Sidebar */}
-      <aside className={`${collapsed ? "w-14" : "w-56"} bg-brown text-cream flex-shrink-0 flex flex-col transition-all duration-200 relative`}>
+      {/* Sidebar desktop */}
+      <aside className={`hidden md:flex ${collapsed ? "w-14" : "w-56"} bg-brown text-cream flex-shrink-0 flex-col transition-all duration-200 relative`}>
         {/* Header */}
         <div className={`px-3 py-5 border-b border-brown-mid flex items-center ${collapsed ? "justify-center" : "justify-between px-6"}`}>
           {!collapsed && (
@@ -117,9 +117,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Contenu */}
-      <div className="flex-1 bg-cream overflow-auto">
+      <div className="flex-1 bg-cream overflow-auto min-w-0 pb-20 md:pb-0">
         {children}
       </div>
+
+      {/* Navbar mobile en bas */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-brown border-t border-brown-mid z-50 flex items-center justify-around px-1 py-2">
+        {NAV.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+          const isMessages = href === "/admin/messages";
+          const showBadge = isMessages && unreadCount > 0;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors relative ${
+                active ? "text-cream" : "text-cream/50"
+              }`}
+            >
+              <div className="relative">
+                <Icon size={18} />
+                {showBadge && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-terracotta text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium leading-none">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

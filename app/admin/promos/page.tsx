@@ -67,7 +67,7 @@ export default function AdminPromosPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Promotions</p>

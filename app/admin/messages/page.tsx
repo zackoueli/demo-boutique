@@ -7,7 +7,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Conversation, Message } from "@/lib/types";
-import { MessageSquare, Send, CheckCircle, X, ChevronRight, Mail } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, X, ChevronRight, ChevronLeft, Mail } from "lucide-react";
 
 function formatDate(date: { seconds: number } | Date | undefined): string {
   if (!date) return "";
@@ -86,18 +86,18 @@ export default function AdminMessagesPage() {
   const selected = conversations.find((c) => c.id === selectedId);
 
   return (
-    <div className="p-6 h-full flex flex-col">
-      <div className="mb-6">
+    <div className="p-4 md:p-6 h-full flex flex-col">
+      <div className="mb-4 md:mb-6">
         <h1 className="font-serif text-2xl font-semibold text-brown">Messages</h1>
         <p className="text-sm text-brown-light mt-1">
           Formulaire de contact et messagerie — tous vos échanges clients au même endroit
         </p>
       </div>
 
-      <div className="flex-1 border border-border rounded-2xl overflow-hidden flex">
+      <div className="flex-1 border border-border rounded-2xl overflow-hidden flex flex-col md:flex-row">
 
         {/* ─── Liste des conversations ─── */}
-        <div className="w-80 border-r border-border flex flex-col flex-shrink-0">
+        <div className={`${selectedId ? "hidden md:flex" : "flex"} md:w-80 border-b md:border-b-0 md:border-r border-border flex-col flex-shrink-0`}>
           <div className="px-4 py-3 border-b border-border">
             <p className="text-xs font-semibold text-brown uppercase tracking-widest">
               {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
@@ -156,25 +156,33 @@ export default function AdminMessagesPage() {
         </div>
 
         {/* ─── Détail conversation ─── */}
-        <div className="flex-1 flex flex-col">
+        <div className={`${selectedId ? "flex" : "hidden md:flex"} flex-1 flex-col`}>
           {selected ? (
             <>
               {/* En-tête conversation */}
               <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    {selected.source === "contact" ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700">
-                        <Mail size={9} /> Formulaire de contact
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
-                        <MessageSquare size={9} /> Messagerie
-                      </span>
-                    )}
+                <div className="min-w-0 flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="md:hidden p-1 -ml-1 text-brown-light hover:text-brown flex-shrink-0"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {selected.source === "contact" ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700">
+                          <Mail size={9} /> Formulaire de contact
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                          <MessageSquare size={9} /> Messagerie
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-semibold text-brown text-sm truncate">{selected.subject}</p>
+                    <p className="text-xs text-brown-light">{selected.userName} · {selected.userEmail}</p>
                   </div>
-                  <p className="font-semibold text-brown text-sm truncate">{selected.subject}</p>
-                  <p className="text-xs text-brown-light">{selected.userName} · {selected.userEmail}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {selected.status === "open" ? (
