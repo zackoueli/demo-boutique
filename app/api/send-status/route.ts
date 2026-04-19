@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
+import { isValidEmail, checkRateLimit, getClientIp } from "@/lib/api-helpers";
 
 const FROM = process.env.RESEND_FROM ?? "commandes@demo-boutique.fr";
 
@@ -97,7 +98,26 @@ function buildHtml(d: StatusPayload): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = checkRateLimit(ip);
+    if (!allowed) {
+      return NextResponse.json({ ok: false, error: "Trop de requêtes" }, { status: 429 });
+    }
+
     const body: StatusPayload = await req.json();
+
+    if (!isValidEmail(body.userEmail)) {
+      return NextResponse.json({ ok: false, error: "Email invalide" }, { status: 400 });
+    }
+
+    if (!body.orderId || typeof body.orderId !== "string" || body.orderId.length > 100) {
+      return NextResponse.json({ ok: false, error: "orderId invalide" }, { status: 400 });
+    }
+
+    const VALID_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
+    if (!VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json({ ok: false, error: "Statut invalide" }, { status: 400 });
+    }
 
     // On n'envoie pas d'email pour "pending" (état initial)
     if (body.status === "pending") {

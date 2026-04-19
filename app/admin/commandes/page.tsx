@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
@@ -36,28 +36,46 @@ const STATUS_DOT: Record<Order["status"], string> = {
 
 type OrderWithDocId = Order & { docId: string };
 
+const PAGE_SIZE = 50;
+
 export default function AdminCommandesPage() {
   const [orders, setOrders] = useState<OrderWithDocId[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<Order["status"] | "all">("all");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [statusToast, setStatusToast] = useState<string | null>(null);
 
   async function load(showRefresh = false) {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const snap = await getDocs(collection(db, "orders"));
+      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+      const snap = await getDocs(q);
       const data = snap.docs.map((d) => ({ docId: d.id, ...d.data() } as OrderWithDocId));
-      data.sort((a, b) => {
-        const ta = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-        const tb = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-        return tb - ta;
-      });
       setOrders(data);
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
     } catch { setOrders([]); }
     finally { setLoading(false); setRefreshing(false); }
+  }
+
+  async function loadMore() {
+    if (!lastDoc || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(PAGE_SIZE), startAfter(lastDoc));
+      const snap = await getDocs(q);
+      const data = snap.docs.map((d) => ({ docId: d.id, ...d.data() } as OrderWithDocId));
+      setOrders((prev) => [...prev, ...data]);
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch { /* */ }
+    finally { setLoadingMore(false); }
   }
 
   useEffect(() => { load(); }, []);
@@ -66,7 +84,7 @@ export default function AdminCommandesPage() {
     await updateDoc(doc(db, "orders", docId), { status });
     setOrders((prev) => prev.map((o) => o.docId === docId ? { ...o, status } : o));
 
-    // Email de suivi au client (fire & forget)
+    // Email de suivi au client
     const order = orders.find((o) => o.docId === docId);
     if (order) {
       fetch("/api/send-status", {
@@ -79,7 +97,17 @@ export default function AdminCommandesPage() {
           status,
           total: order.total,
         }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.ok) {
+            setStatusToast(`Statut mis à jour — email envoyé à ${order.userEmail}`);
+          } else {
+            setStatusToast("Statut mis à jour — l'email n'a pas pu être envoyé");
+          }
+        })
+        .catch(() => setStatusToast("Statut mis à jour — erreur réseau, email non envoyé"));
+
+      setTimeout(() => setStatusToast(null), 4000);
     }
   }
 
@@ -116,6 +144,13 @@ export default function AdminCommandesPage() {
 
   return (
     <div className="p-4 md:p-8">
+      {/* Toast feedback statut */}
+      {statusToast && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-brown text-cream text-sm px-5 py-3 rounded-2xl shadow-xl max-w-sm text-center animate-fade-in">
+          {statusToast}
+        </div>
+      )}
+
       {/* En-tête */}
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
@@ -367,6 +402,19 @@ export default function AdminCommandesPage() {
           </div>
         )}
       </div>
+
+      {hasMore && !search && filterStatus === "all" && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-2.5 border border-border rounded-xl text-sm text-brown-mid hover:bg-sand transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? <RefreshCw size={14} className="animate-spin" /> : null}
+            {loadingMore ? "Chargement…" : "Charger plus de commandes"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

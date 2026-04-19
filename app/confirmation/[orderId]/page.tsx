@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle, ArrowRight } from "lucide-react";
 import InvoiceButton from "@/app/ui/invoice-button";
 
@@ -13,23 +15,59 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
   const [orderId, setOrderId] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => { props.params.then(({ orderId }) => setOrderId(orderId)); }, [props.params]);
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId || authLoading) return;
+
+    // Redirige les non-connectés vers la page de connexion
+    if (!user) {
+      router.replace(`/connexion?from=/confirmation/${orderId}`);
+      return;
+    }
+
     getDocs(query(collection(db, "orders"), where("id", "==", orderId), limit(1))).then((snap) => {
-      if (!snap.empty) setOrder(snap.docs[0].data() as Order);
+      if (snap.empty) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      const data = snap.docs[0].data() as Order;
+      // Vérifie que la commande appartient à l'utilisateur connecté (sauf admin)
+      if (!isAdmin && data.userId !== user.uid) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      setOrder(data);
       setLoading(false);
     });
-  }, [orderId]);
+  }, [orderId, user, isAdmin, authLoading, router]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="bg-cream min-h-screen flex items-center justify-center">
         <div className="text-center animate-pulse space-y-4">
           <div className="w-16 h-16 bg-sand rounded-full mx-auto" />
           <div className="h-5 bg-sand rounded w-48 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="bg-cream min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="font-serif text-xl text-brown">Commande introuvable</p>
+          <p className="text-brown-light text-sm">Cette commande n&apos;existe pas ou ne vous appartient pas.</p>
+          <Link href="/catalogue" className="inline-block px-6 py-3 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors">
+            Retour à la boutique
+          </Link>
         </div>
       </div>
     );

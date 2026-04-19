@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, orderBy, query,
+  doc, serverTimestamp, orderBy, query, limit, startAfter, QueryDocumentSnapshot, DocumentData,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -31,9 +31,14 @@ const EMPTY_CUSTOM_FIELD: Omit<CustomizationField, "id"> = {
 
 const inputCls = "w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition";
 
+const PROD_PAGE_SIZE = 50;
+
 export default function AdminProduitsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const { categories } = useCategories();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -42,16 +47,32 @@ export default function AdminProduitsPage() {
   const [showCustomSection, setShowCustomSection] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
   async function load() {
     try {
-      const snap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc")));
+      const snap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(PROD_PAGE_SIZE)));
       setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)));
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+      setHasMore(snap.docs.length === PROD_PAGE_SIZE);
     } catch { setProducts([]); }
     finally { setLoading(false); }
+  }
+
+  async function loadMore() {
+    if (!lastDoc || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const snap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(PROD_PAGE_SIZE), startAfter(lastDoc)));
+      setProducts((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product))]);
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+      setHasMore(snap.docs.length === PROD_PAGE_SIZE);
+    } catch { /* */ }
+    finally { setLoadingMore(false); }
   }
 
   useEffect(() => { load(); }, []);
@@ -78,11 +99,13 @@ export default function AdminProduitsPage() {
 
   async function handleFileDrop(file: File) {
     if (!file.type.startsWith("image/")) return;
+    setUploadError(null);
     try {
       const url = await uploadImage(file);
       setForm((f) => ({ ...f, imageUrl: url }));
     } catch (err) {
       console.error("Upload failed:", err);
+      setUploadError("Échec de l'upload. Vérifiez votre connexion ou les règles Firebase Storage.");
     }
   }
 
@@ -122,6 +145,7 @@ export default function AdminProduitsPage() {
     setCustomFields([]);
     setShowCustomSection(false);
     setUploadProgress(null);
+    setUploadError(null);
     dragCounter.current = 0;
     setIsDragging(false);
     setShowModal(true);
@@ -139,6 +163,7 @@ export default function AdminProduitsPage() {
     setCustomFields(p.customizationFields ?? []);
     setShowCustomSection((p.customizationFields ?? []).length > 0);
     setUploadProgress(null);
+    setUploadError(null);
     dragCounter.current = 0;
     setIsDragging(false);
     setShowModal(true);
@@ -180,8 +205,13 @@ export default function AdminProduitsPage() {
   }
 
   async function handleDelete(p: Product) {
-    if (!confirm(`Supprimer "${p.name}" ?`)) return;
-    await deleteDoc(doc(db, "products", p.id));
+    setProductToDelete(p);
+  }
+
+  async function confirmDelete() {
+    if (!productToDelete) return;
+    await deleteDoc(doc(db, "products", productToDelete.id));
+    setProductToDelete(null);
     load();
   }
 
@@ -293,6 +323,46 @@ export default function AdminProduitsPage() {
         )}
       </div>
 
+      {hasMore && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-2.5 border border-border rounded-xl text-sm text-brown-mid hover:bg-sand transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+            {loadingMore ? "Chargement…" : "Charger plus de produits"}
+          </button>
+        </div>
+      )}
+
+      {/* Modale confirmation suppression */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-brown/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-cream rounded-2xl w-full max-w-sm shadow-2xl border border-border p-6">
+            <h3 className="font-serif font-semibold text-brown text-lg mb-2">Supprimer ce produit ?</h3>
+            <p className="text-sm text-brown-light mb-1">
+              <span className="font-medium text-brown">{productToDelete.name}</span> sera définitivement supprimé.
+            </p>
+            <p className="text-xs text-brown-light mb-6">Cette action est irréversible.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setProductToDelete(null)}
+                className="flex-1 py-2.5 border border-border text-brown-mid rounded-xl text-sm font-medium hover:bg-sand transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-brown/40 flex items-center justify-center z-50 p-4">
@@ -372,6 +442,10 @@ export default function AdminProduitsPage() {
                   </div>
                 )}
               </div>
+
+              {uploadError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{uploadError}</p>
+              )}
 
               <FormField label="URLs images supplémentaires" required={false}>
                 <textarea

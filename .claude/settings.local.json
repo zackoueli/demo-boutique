@@ -21,7 +21,16 @@
       "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --format=\"%an <%ae> — %s\" -3)",
       "Bash(git -C /c/Users/Enzooo/Documents/dev/pizzeria-web log --format=\"%an <%ae> — %s\")",
       "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => k.toLowerCase\\(\\).includes\\('insta'\\) || k.toLowerCase\\(\\).includes\\('face'\\) || k.toLowerCase\\(\\).includes\\('twitter'\\) || k.toLowerCase\\(\\).includes\\('social'\\)\\)\\)\")",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(grep -r \"rings\\\\|necklaces\\\\|bracelets\\\\|earrings\" /c/Users/Enzooo/Documents/dev/demo-boutique --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" -l)",
+      "Bash(grep -n \"next.config\" next.config.ts)",
+      "Bash(cat next.config.ts)",
+      "Bash(cat next.config.js)",
+      "Bash(cat next.config.mjs)",
+      "Bash(ls firebase.json firestore.rules storage.rules)",
+      "Bash(firebase --version)",
+      "Bash(firebase use *)",
+      "Bash(firebase deploy *)"
     ]
   }
 }

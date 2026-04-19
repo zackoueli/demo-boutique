@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query as fsQuery, limit, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
@@ -18,13 +18,16 @@ export default function SearchBar() {
   const [results, setResults] = useState<Product[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const loaded = useRef(false);
 
-  // Charge tous les produits une fois au montage
+  // Charge les produits uniquement à la première ouverture (max 200)
   useEffect(() => {
-    getDocs(collection(db, "products"))
+    if (!open || loaded.current) return;
+    loaded.current = true;
+    getDocs(fsQuery(collection(db, "products"), orderBy("name"), limit(200)))
       .then((snap) => setAllProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product))))
       .catch(() => {});
-  }, []);
+  }, [open]);
 
   // Filtre en temps réel
   useEffect(() => {

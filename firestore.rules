@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helpers
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // ── Produits : lecture publique, écriture admin uniquement ──
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Catégories : lecture publique, écriture admin ──
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Codes promo : lecture auth (checkout), écriture admin ──
+    match /promoCodes/{promoId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── Commandes : création par utilisateur connecté, lecture par propriétaire ou admin ──
+    match /orders/{orderId} {
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Utilisateurs : chaque utilisateur lit/écrit son propre doc, admin lit tout ──
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // ── Conversations (messagerie) : création par auth, lecture/écriture par propriétaire ou admin ──
+    match /conversations/{convId} {
+      allow create: if isAuth();
+      allow read, update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+
+      match /messages/{msgId} {
+        allow read: if isAdmin() || (isAuth() && get(/databases/$(database)/documents/conversations/$(convId)).data.userId == request.auth.uid);
+        allow create: if isAuth();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ── Photos (galerie) : lecture publique, écriture admin ──
+    match /photos/{photoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Tout le reste : refusé par défaut ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

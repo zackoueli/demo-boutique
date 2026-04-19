@@ -324,6 +324,18 @@ export default function CheckoutPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (items.length === 0) return;
+
+    // Validation JS avant soumission
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRegex.test(form.email)) {
+      setError("L'adresse email saisie n'est pas valide.");
+      return;
+    }
+    const postalRegex = /^\d{5}$/;
+    if (deliveryType === "home" && !postalRegex.test(form.postalCode)) {
+      setError("Le code postal doit contenir exactement 5 chiffres.");
+      return;
+    }
     if (deliveryType === "relay" && !selectedRelay) {
       setError("Veuillez sélectionner un point relais.");
       return;
@@ -412,8 +424,15 @@ export default function CheckoutPage() {
 
       clearCart();
       router.push(`/confirmation/${orderId}`);
-    } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
+    } catch (err) {
+      console.error("[checkout] Erreur lors de la création de commande:", err);
+      if (err instanceof Error && err.message.includes("permission")) {
+        setError("Erreur d'autorisation. Veuillez vous reconnecter et réessayer.");
+      } else if (err instanceof Error && err.message.includes("network")) {
+        setError("Erreur réseau. Vérifiez votre connexion internet.");
+      } else {
+        setError("Une erreur est survenue lors de la création de votre commande. Veuillez réessayer.");
+      }
     } finally {
       setLoading(false);
     }

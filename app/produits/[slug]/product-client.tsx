@@ -50,11 +50,15 @@ function CustomizationInput({
   field,
   value,
   onChange,
+  hasError = false,
 }: {
   field: CustomizationField;
   value: string;
   onChange: (v: string) => void;
+  hasError?: boolean;
 }) {
+  const errorCls = hasError ? "border-red-400 ring-1 ring-red-300" : "";
+
   if (field.type === "text") {
     return (
       <div>
@@ -72,8 +76,9 @@ function CustomizationInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Votre ${field.label.toLowerCase()}`}
           required={field.required}
-          className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition"
+          className={`w-full px-4 py-3 border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition ${errorCls || "border-border"}`}
         />
+        {hasError && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
       </div>
     );
   }
@@ -84,6 +89,7 @@ function CustomizationInput({
         <label className="block text-sm font-medium text-brown-mid mb-1.5">
           {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
         </label>
+        {hasError && <p className="text-xs text-red-500 mb-1">Ce champ est obligatoire</p>}
         <div className="flex flex-wrap gap-2">
           {field.options?.map((opt) => {
             const label = optionLabel(opt);
@@ -152,6 +158,7 @@ function CustomizationInput({
         <label className="block text-sm font-medium text-brown-mid mb-1.5">
           {field.label}{field.required && <span className="text-terracotta ml-0.5">*</span>}
         </label>
+        {hasError && <p className="text-xs text-red-500 mb-1">Ce champ est obligatoire</p>}
         <div className="flex flex-wrap gap-3">
           {field.options?.map((opt) => {
             const label = optionLabel(opt);
@@ -196,6 +203,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<Tab>("description");
   const [customization, setCustomization] = useState<Record<string, string>>({});
+  const [errorFields, setErrorFields] = useState<Set<string>>(new Set());
   const { addItem } = useCart();
   const { showToast } = useToast();
 
@@ -227,18 +235,20 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
 
   function handleCustomizationChange(fieldId: string, value: string) {
     setCustomization((prev) => ({ ...prev, [fieldId]: value }));
+    setErrorFields((prev) => { const next = new Set(prev); next.delete(fieldId); return next; });
   }
 
   function handleAddToCart() {
     if (!product) return;
 
     const requiredFields = product.customizationFields?.filter((f) => f.required) ?? [];
-    for (const field of requiredFields) {
-      if (!customization[field.id]?.trim()) {
-        showToast({ message: `Veuillez renseigner : ${field.label}` });
-        return;
-      }
+    const missing = requiredFields.filter((f) => !customization[f.id]?.trim());
+    if (missing.length > 0) {
+      setErrorFields(new Set(missing.map((f) => f.id)));
+      showToast({ message: `Veuillez renseigner : ${missing.map((f) => f.label).join(", ")}` });
+      return;
     }
+    setErrorFields(new Set());
 
     const customizationLabels: Record<string, string> = {};
     if (product.customizationFields) {
@@ -348,6 +358,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                     field={field}
                     value={customization[field.id] ?? ""}
                     onChange={(v) => handleCustomizationChange(field.id, v)}
+                    hasError={errorFields.has(field.id)}
                   />
                 ))}
               </div>
@@ -366,17 +377,30 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
               )}
             </div>
 
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className={`flex items-center justify-center gap-2.5 py-4 px-8 rounded-2xl font-medium text-sm transition-all mb-6 ${
-                added ? "bg-green-700 text-cream" : "bg-brown text-cream hover:bg-brown-mid"
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-            >
-              {added
-                ? <><CheckCircle size={18} /> Ajouté au panier !</>
-                : <><ShoppingBag size={18} /> Ajouter au panier — {formatPrice(unitPrice * qty)}</>}
-            </button>
+            {product.stock === 0 ? (
+              <div className="mb-6">
+                <button
+                  disabled
+                  className="flex items-center justify-center gap-2.5 w-full py-4 px-8 rounded-2xl font-medium text-sm bg-brown text-cream opacity-40 cursor-not-allowed"
+                >
+                  <ShoppingBag size={18} /> Produit indisponible
+                </button>
+                <p className="text-center text-sm text-brown-light mt-2">
+                  Ce produit est actuellement en rupture de stock.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={handleAddToCart}
+                className={`flex items-center justify-center gap-2.5 w-full py-4 px-8 rounded-2xl font-medium text-sm transition-all mb-6 ${
+                  added ? "bg-green-700 text-cream" : "bg-brown text-cream hover:bg-brown-mid"
+                }`}
+              >
+                {added
+                  ? <><CheckCircle size={18} /> Ajouté au panier !</>
+                  : <><ShoppingBag size={18} /> Ajouter au panier — {formatPrice(unitPrice * qty)}</>}
+              </button>
+            )}
 
             <div className="mb-6">
               <ShareButtons url={productUrl} title={product.name} />

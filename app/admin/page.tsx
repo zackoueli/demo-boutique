@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
@@ -26,19 +26,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [ordersSnap, productsSnap] = await Promise.all([
+        const [ordersSnap, productsSnap, recentSnap] = await Promise.all([
           getDocs(collection(db, "orders")),
           getDocs(collection(db, "products")),
+          getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(5))),
         ]);
         const allOrders = ordersSnap.docs.map((d) => d.data() as Order);
         setStats({ orders: allOrders.length, revenue: allOrders.reduce((s, o) => s + o.total, 0), products: productsSnap.size });
-
-        const recentOrders = allOrders.slice().sort((a, b) => {
-          const ta = (a.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-          const tb = (b.createdAt as unknown as { seconds: number })?.seconds ?? 0;
-          return tb - ta;
-        }).slice(0, 5);
-        setRecentOrders(recentOrders);
+        setRecentOrders(recentSnap.docs.map((d) => d.data() as Order));
       } catch { /* */ }
       finally { setLoading(false); }
     }
