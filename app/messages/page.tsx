@@ -383,19 +383,12 @@ export default function MessagesPage() {
         <div className="hidden md:block border border-border rounded-2xl overflow-hidden bg-cream" style={{ height: "600px" }}>
           <div className="flex h-full">
             <div className="w-72 border-r border-border flex-shrink-0 flex flex-col">
-              {showNew ? (
-                <NewConversationForm
-                  onCreated={(id) => { setSelectedId(id); setShowNew(false); }}
-                  onCancel={() => setShowNew(false)}
-                />
-              ) : (
-                <ConversationList
-                  conversations={conversations}
-                  selected={selectedId}
-                  onSelect={(id) => { setSelectedId(id); setShowNew(false); }}
-                  onNew={() => { setShowNew(true); setSelectedId(null); }}
-                />
-              )}
+              <ConversationList
+                conversations={conversations}
+                selected={selectedId}
+                onSelect={(id) => { setSelectedId(id); setShowNew(false); }}
+                onNew={() => { setShowNew(true); setSelectedId(null); }}
+              />
             </div>
             <div className="flex-1 flex flex-col">
               {selectedId ? (
