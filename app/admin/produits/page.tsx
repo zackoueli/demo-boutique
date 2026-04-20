@@ -366,7 +366,7 @@ export default function AdminProduitsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-brown/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-cream rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
+          <div className="bg-cream rounded-2xl w-full max-w-lg max-h-[calc(100vh-5rem)] md:max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="font-serif font-semibold text-brown">
                 {editing ? "Modifier le produit" : "Nouveau produit"}
@@ -665,7 +665,7 @@ export default function AdminProduitsPage() {
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 pb-4 md:pb-0">
                 <button type="button" onClick={() => setShowModal(false)}
                   className="flex-1 py-3 border border-border text-brown-mid rounded-xl text-sm font-medium hover:bg-sand transition-colors">
                   Annuler
