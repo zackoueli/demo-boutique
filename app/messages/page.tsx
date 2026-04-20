@@ -328,8 +328,8 @@ export default function MessagesPage() {
     const unsub = onSnapshot(q, (snap) => {
       const convs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation));
       convs.sort((a, b) => {
-        const aTime = (a.lastMessageAt as { seconds: number } | null)?.seconds ?? 0;
-        const bTime = (b.lastMessageAt as { seconds: number } | null)?.seconds ?? 0;
+        const aTime = (a.lastMessageAt as unknown as { seconds: number } | null)?.seconds ?? 0;
+        const bTime = (b.lastMessageAt as unknown as { seconds: number } | null)?.seconds ?? 0;
         return bTime - aTime;
       });
       setConversations(convs);
