@@ -66,6 +66,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Avis produits : lecture publique, écriture par utilisateur connecté (1 avis par user/produit géré côté client) ──
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
     // ── Tout le reste : refusé par défaut ──
     match /{document=**} {
       allow read, write: if false;
