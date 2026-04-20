@@ -323,11 +323,18 @@ export default function MessagesPage() {
     if (!user) return;
     const q = query(
       collection(db, "conversations"),
-      where("userId", "==", user.uid),
-      orderBy("lastMessageAt", "desc")
+      where("userId", "==", user.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setConversations(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation)));
+      const convs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation));
+      convs.sort((a, b) => {
+        const aTime = (a.lastMessageAt as { seconds: number } | null)?.seconds ?? 0;
+        const bTime = (b.lastMessageAt as { seconds: number } | null)?.seconds ?? 0;
+        return bTime - aTime;
+      });
+      setConversations(convs);
+    }, (err) => {
+      console.error("[messages] Firestore error:", err);
     });
     return unsub;
   }, [user]);
