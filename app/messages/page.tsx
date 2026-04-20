@@ -249,7 +249,7 @@ function NewConversationForm({
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 overflow-y-auto flex-1">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onCancel} className="p-1.5 hover:bg-sand rounded-lg transition-colors">
           <ArrowLeft size={16} className="text-brown-mid" />
@@ -355,10 +355,34 @@ export default function MessagesPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="border border-border rounded-2xl overflow-hidden bg-cream" style={{ height: "600px" }}>
+        {/* ── Mobile : vue unique ── */}
+        <div className="md:hidden border border-border rounded-2xl overflow-hidden bg-cream" style={{ height: "calc(100dvh - 220px)" }}>
+          {showNew ? (
+            <NewConversationForm
+              onCreated={(id) => { setSelectedId(id); setShowNew(false); }}
+              onCancel={() => setShowNew(false)}
+            />
+          ) : selectedId ? (
+            <ConversationDetail
+              key={selectedId}
+              conversationId={selectedId}
+              status={conversations.find((c) => c.id === selectedId)?.status ?? "open"}
+              onBack={() => setSelectedId(null)}
+            />
+          ) : (
+            <ConversationList
+              conversations={conversations}
+              selected={selectedId}
+              onSelect={(id) => { setSelectedId(id); setShowNew(false); }}
+              onNew={() => setShowNew(true)}
+            />
+          )}
+        </div>
+
+        {/* ── Desktop : deux colonnes ── */}
+        <div className="hidden md:block border border-border rounded-2xl overflow-hidden bg-cream" style={{ height: "600px" }}>
           <div className="flex h-full">
-            {/* Colonne liste */}
-            <div className={`w-full md:w-72 border-r border-border flex-shrink-0 ${selectedId || showNew ? "hidden md:flex md:flex-col" : "flex flex-col"}`}>
+            <div className="w-72 border-r border-border flex-shrink-0 flex flex-col">
               {showNew ? (
                 <NewConversationForm
                   onCreated={(id) => { setSelectedId(id); setShowNew(false); }}
@@ -373,15 +397,18 @@ export default function MessagesPage() {
                 />
               )}
             </div>
-
-            {/* Colonne détail */}
-            <div className={`flex-1 flex flex-col ${!selectedId && !showNew ? "hidden md:flex" : "flex"}`}>
+            <div className="flex-1 flex flex-col">
               {selectedId ? (
                 <ConversationDetail
                   key={selectedId}
                   conversationId={selectedId}
                   status={conversations.find((c) => c.id === selectedId)?.status ?? "open"}
                   onBack={() => setSelectedId(null)}
+                />
+              ) : showNew ? (
+                <NewConversationForm
+                  onCreated={(id) => { setSelectedId(id); setShowNew(false); }}
+                  onCancel={() => setShowNew(false)}
                 />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
@@ -391,7 +418,7 @@ export default function MessagesPage() {
                     Sélectionnez une conversation ou démarrez-en une nouvelle.
                   </p>
                   <button
-                    onClick={() => setShowNew(true)}
+                    onClick={() => { setShowNew(true); setSelectedId(null); }}
                     className="flex items-center gap-2 px-5 py-2.5 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors"
                   >
                     <Plus size={15} /> Nouvelle conversation
