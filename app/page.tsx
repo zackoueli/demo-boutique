@@ -314,20 +314,24 @@ function MemorialCard({ categories }: { categories: Category[] }) {
         boxShadow: "0 24px 64px rgba(61,43,31,0.22)",
       }}
     >
-      {/* Fond dégradé profond */}
+      {/* Photo de la catégorie ou fond dégradé fallback */}
+      {memorialCat?.imageUrl ? (
+        <Image
+          src={memorialCat.imageUrl}
+          alt="Bijoux mémoriels"
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0" style={{
+          background: "linear-gradient(160deg, #2a1a10 0%, #5a3520 50%, #3d2b1f 100%)"
+        }} />
+      )}
+
+      {/* Overlay sombre pour lisibilité du texte */}
       <div className="absolute inset-0" style={{
-        background: "linear-gradient(160deg, #2a1a10 0%, #5a3520 50%, #3d2b1f 100%)"
-      }} />
-
-      {/* Lumière ambrée en haut à droite */}
-      <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none" style={{
-        background: "radial-gradient(circle at top right, rgba(192,130,106,0.35) 0%, transparent 65%)"
-      }} />
-
-      {/* Texture grain */}
-      <div className="absolute inset-0 opacity-[0.04]" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        backgroundSize: "200px"
+        background: "linear-gradient(to top, rgba(20,10,5,0.88) 0%, rgba(20,10,5,0.45) 50%, rgba(20,10,5,0.2) 100%)"
       }} />
 
       {/* Contenu */}
