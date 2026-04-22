@@ -147,22 +147,22 @@ function CatalogueContent() {
 
       {/* Barre tri + filtre prix */}
       <div className="flex flex-wrap items-center gap-3 mb-8 py-3 border-y border-border">
-        {/* Filtre prix */}
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-brown-light self-center">Prix :</span>
-          {PRICE_RANGES.map((range, idx) => (
-            <button
-              key={idx}
-              onClick={() => setPriceRange(priceRange === idx ? null : idx)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                priceRange === idx
-                  ? "bg-terracotta text-white border-terracotta"
-                  : "border-border text-brown-light hover:border-terracotta hover:text-terracotta bg-cream"
-              }`}
+        {/* Filtre prix — select discret */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-brown-light">Prix :</span>
+          <div className="relative">
+            <select
+              value={priceRange ?? ""}
+              onChange={(e) => setPriceRange(e.target.value === "" ? null : Number(e.target.value))}
+              className="appearance-none pl-3 pr-8 py-1.5 border border-border rounded-xl text-xs text-brown bg-cream focus:outline-none focus:ring-2 focus:ring-brown cursor-pointer"
             >
-              {range.label}
-            </button>
-          ))}
+              <option value="">Tous les prix</option>
+              {PRICE_RANGES.map((range, idx) => (
+                <option key={idx} value={idx}>{range.label}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brown-light pointer-events-none" />
+          </div>
         </div>
 
         {/* Tri */}
