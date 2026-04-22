@@ -490,20 +490,18 @@ export default function CheckoutPage() {
                 {deliveryType === "home" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>
 
-              <button
-                type="button"
-                onClick={() => setDeliveryType("relay")}
-                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                  deliveryType === "relay" ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
-                }`}
+              <div
+                className="flex items-start gap-3 p-4 rounded-2xl border-2 border-border bg-cream/50 text-left opacity-50 cursor-not-allowed select-none"
               >
-                <Store size={18} className={deliveryType === "relay" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
+                <Store size={18} className="text-brown-light mt-0.5" />
                 <div>
-                  <p className={`font-medium text-sm ${deliveryType === "relay" ? "text-brown" : "text-brown-mid"}`}>Point relais</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-brown-light">Point relais</p>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Indisponible</span>
+                  </div>
                   <p className="text-xs text-brown-light mt-0.5">Mondial Relay · Colissimo · Chronopost</p>
                 </div>
-                {deliveryType === "relay" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
-              </button>
+              </div>
             </div>
           </section>
 
