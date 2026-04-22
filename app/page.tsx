@@ -126,9 +126,9 @@ export default function HomePage() {
             </FadeIn>
           </div>
 
-          {/* Droite — mosaïque de créations comme sur un établi */}
-          <FadeIn delay={100} className="relative flex items-end justify-center pb-0">
-            <AtlierMosaic products={featuredProducts} />
+          {/* Droite — accès bijoux mémoriels */}
+          <FadeIn delay={100} className="relative flex items-center justify-center pb-16 md:pb-24">
+            <MemorialCard categories={categories} />
           </FadeIn>
         </div>
 
@@ -297,53 +297,84 @@ export default function HomePage() {
   );
 }
 
-/* ── Mosaïque de l'atelier — créations disposées comme sur un établi ── */
-function AtlierMosaic({ products }: { products: Product[] }) {
-  const layouts = [
-    { top: "5%",  left: "5%",  w: "52%", aspect: "aspect-[3/4]", rotate: "-2deg",  delay: 200 },
-    { top: "0%",  left: "55%", w: "42%", aspect: "aspect-square", rotate: "2.5deg", delay: 350 },
-    { top: "52%", left: "0%",  w: "44%", aspect: "aspect-square", rotate: "-1.5deg", delay: 500 },
-    { top: "48%", left: "48%", w: "50%", aspect: "aspect-[4/3]", rotate: "1.5deg",  delay: 300 },
-  ];
+/* ── Carte d'accès bijoux mémoriels — hero droit ── */
+function MemorialCard({ categories }: { categories: Category[] }) {
+  const memorialCat = categories.find(
+    (c) => c.key?.toLowerCase().includes("memoriel") || c.key?.toLowerCase().includes("memorial") || c.label?.toLowerCase().includes("mémoriel")
+  );
+  const href = memorialCat ? `/catalogue?category=${memorialCat.key}` : "/catalogue";
 
   return (
-    <div className="relative w-full" style={{ height: "min(85vh, 640px)", minHeight: 380 }}>
-      {layouts.map((layout, i) => {
-        const product = products[i];
-        return (
-          <FadeIn key={i} delay={layout.delay}>
-            <div
-              className="absolute rounded-2xl overflow-hidden shadow-lg"
-              style={{
-                top: layout.top,
-                left: layout.left,
-                width: layout.w,
-                transform: `rotate(${layout.rotate})`,
-                transformOrigin: "center center",
-                border: "3px solid white",
-                boxShadow: "0 8px 32px rgba(61,43,31,0.15)",
-              }}
-            >
-              <div className={layout.aspect}>
-                {product?.imageUrl ? (
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: `hsl(${20 + i * 15}, 30%, ${88 - i * 3}%)` }}>
-                    <span className="text-3xl opacity-40">✨</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </FadeIn>
-        );
-      })}
-    </div>
+    <Link
+      href={href}
+      className="group relative block rounded-3xl overflow-hidden w-full max-w-md"
+      style={{
+        aspectRatio: "3/4",
+        maxHeight: "min(75vh, 580px)",
+        boxShadow: "0 24px 64px rgba(61,43,31,0.22)",
+      }}
+    >
+      {/* Fond dégradé profond */}
+      <div className="absolute inset-0" style={{
+        background: "linear-gradient(160deg, #2a1a10 0%, #5a3520 50%, #3d2b1f 100%)"
+      }} />
+
+      {/* Lumière ambrée en haut à droite */}
+      <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none" style={{
+        background: "radial-gradient(circle at top right, rgba(192,130,106,0.35) 0%, transparent 65%)"
+      }} />
+
+      {/* Texture grain */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        backgroundSize: "200px"
+      }} />
+
+      {/* Contenu */}
+      <div className="relative h-full flex flex-col justify-between p-8 md:p-10">
+
+        {/* Badge haut */}
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#c0826a" }} />
+          <p className="text-xs font-medium uppercase tracking-[0.22em]" style={{ color: "#c0826a" }}>
+            Mon univers principal
+          </p>
+        </div>
+
+        {/* Centre — texte principal */}
+        <div className="flex flex-col gap-5">
+          <h2 className="font-serif font-semibold text-white leading-[1.15]" style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)" }}>
+            Bijoux<br />
+            <em className="not-italic" style={{ color: "#c0826a" }}>mémoriels</em>
+          </h2>
+          <p className="text-sm leading-relaxed" style={{ color: "#c8b49a", maxWidth: "26ch" }}>
+            Je transforme vos souvenirs les plus précieux — lait maternel, mèches de cheveux,
+            fleurs séchées — en un bijou unique à porter près du cœur.
+          </p>
+
+          {/* Tags inclusions */}
+          <div className="flex flex-wrap gap-2">
+            {["Lait maternel", "Cheveux", "Fleurs", "Cendres"].map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-3 py-1 rounded-full"
+                style={{ background: "rgba(192,130,106,0.15)", color: "#c0826a", border: "1px solid rgba(192,130,106,0.25)" }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA bas */}
+        <div
+          className="flex items-center gap-2 text-sm font-medium transition-all duration-300 group-hover:gap-4"
+          style={{ color: "white" }}
+        >
+          Découvrir la collection <ArrowRight size={15} />
+        </div>
+      </div>
+    </Link>
   );
 }
 

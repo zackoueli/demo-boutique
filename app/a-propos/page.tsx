@@ -118,32 +118,12 @@ export default function AProposPage() {
 
           <div className="grid md:grid-cols-2 gap-6">
             <FadeIn delay={0}>
-              <div className="rounded-3xl p-8 h-full flex flex-col gap-5" style={{ background: "white", border: "1px solid #e8ddd5" }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "#fdf3ee" }}>
-                  ✨
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.15em] mb-2" style={{ color: "#c0826a" }}>Premier univers</p>
-                  <h3 className="font-serif text-2xl font-semibold mb-4" style={{ color: "#3d2b1f" }}>Les bijoux fantaisie</h3>
-                  <p className="leading-relaxed" style={{ color: "#8a6858" }}>
-                    Nés de ma fascination pour la douceur du quotidien : les couleurs de la nature, les textures
-                    délicates, les petits éclats de lumière qui rendent une journée plus belle.
-                  </p>
-                </div>
-                <p className="leading-relaxed mt-auto pt-4 border-t text-sm italic" style={{ color: "#c0826a", borderColor: "#e8ddd5" }}>
-                  Chaque bijou fantaisie est une parenthèse poétique, un souffle de légèreté, une invitation
-                  à se sentir belle et unique.
-                </p>
-              </div>
-            </FadeIn>
-
-            <FadeIn delay={100}>
               <div className="rounded-3xl p-8 h-full flex flex-col gap-5" style={{ background: "#3d2b1f" }}>
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "rgba(255,255,255,0.1)" }}>
                   ❤️
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.15em] mb-2" style={{ color: "#c0826a" }}>Deuxième univers</p>
+                  <p className="text-xs font-medium uppercase tracking-[0.15em] mb-2" style={{ color: "#c0826a" }}>Premier univers</p>
                   <h3 className="font-serif text-2xl font-semibold mb-4 text-white">Les bijoux mémoriels</h3>
                   <p className="leading-relaxed" style={{ color: "#c8b49a" }}>
                     La partie la plus intime, la plus profonde de mon travail. Je ne crée pas seulement un bijou :
@@ -161,6 +141,26 @@ export default function AProposPage() {
                 <p className="text-sm italic font-medium mt-auto" style={{ color: "#c0826a" }}>
                   « Créer un bijou mémoriel, c&apos;est entrer dans l&apos;histoire de quelqu&apos;un.
                   C&apos;est un honneur que je ne prends jamais à la légère. »
+                </p>
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={100}>
+              <div className="rounded-3xl p-8 h-full flex flex-col gap-5" style={{ background: "white", border: "1px solid #e8ddd5" }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "#fdf3ee" }}>
+                  ✨
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.15em] mb-2" style={{ color: "#c0826a" }}>Deuxième univers</p>
+                  <h3 className="font-serif text-2xl font-semibold mb-4" style={{ color: "#3d2b1f" }}>Les bijoux fantaisie</h3>
+                  <p className="leading-relaxed" style={{ color: "#8a6858" }}>
+                    Nés de ma fascination pour la douceur du quotidien : les couleurs de la nature, les textures
+                    délicates, les petits éclats de lumière qui rendent une journée plus belle.
+                  </p>
+                </div>
+                <p className="leading-relaxed mt-auto pt-4 border-t text-sm italic" style={{ color: "#c0826a", borderColor: "#e8ddd5" }}>
+                  Chaque bijou fantaisie est une parenthèse poétique, un souffle de légèreté, une invitation
+                  à se sentir belle et unique.
                 </p>
               </div>
             </FadeIn>

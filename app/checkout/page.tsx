@@ -393,7 +393,7 @@ export default function CheckoutPage() {
         createdAt: serverTimestamp(),
       });
       if (promoResult) {
-        await updateDoc(doc(db, "promoCodes", promoResult.id), { usageCount: (promoResult as { usageCount?: number }).usageCount ?? 0 + 1 });
+        await updateDoc(doc(db, "promoCodes", promoResult.id), { usageCount: ((promoResult as { usageCount?: number }).usageCount ?? 0) + 1 });
       }
       await Promise.all(
         items.map(async (item) => {
