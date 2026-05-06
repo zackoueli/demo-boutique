@@ -14,6 +14,7 @@ const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: fa
 
 interface Review {
   id: string;
+  productId: string;
   userName: string;
   rating: number;
   comment: string;
@@ -23,6 +24,7 @@ interface Review {
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewProducts, setReviewProducts] = useState<Record<string, Product>>({});
   const { categories }: { categories: Category[] } = useCategories();
 
   useEffect(() => {
@@ -46,9 +48,18 @@ export default function HomePage() {
       try {
         const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(50)));
         const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Review));
-        // Garde uniquement les avis avec commentaire et note >= 4, max 12
         const best = all.filter((r) => r.rating >= 4 && r.comment?.trim()).slice(0, 12);
         setReviews(best);
+        // Charge les produits associés
+        const productIds = [...new Set(best.map((r) => r.productId).filter(Boolean))];
+        if (productIds.length > 0) {
+          const prodSnap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(100)));
+          const map: Record<string, Product> = {};
+          prodSnap.docs.forEach((d) => {
+            if (productIds.includes(d.id)) map[d.id] = { id: d.id, ...d.data() } as Product;
+          });
+          setReviewProducts(map);
+        }
       } catch {
         setReviews([]);
       }
@@ -227,7 +238,7 @@ export default function HomePage() {
       {/* ══════════════════════════════════════
           SECTION — Avis clients
       ══════════════════════════════════════ */}
-      {reviews.length > 0 && <ReviewsSection reviews={reviews} />}
+      {reviews.length > 0 && <ReviewsSection reviews={reviews} products={reviewProducts} />}
 
       {/* ══════════════════════════════════════
           SECTION — La femme derrière l'atelier
@@ -508,7 +519,7 @@ function CoupsDeCoeur({ products }: { products: Product[] }) {
 }
 
 /* ── Section avis clients ── */
-function ReviewsSection({ reviews }: { reviews: Review[] }) {
+function ReviewsSection({ reviews, products }: { reviews: Review[]; products: Record<string, Product> }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const hasDragged = useRef(false);
@@ -575,36 +586,57 @@ function ReviewsSection({ reviews }: { reviews: Review[] }) {
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
       >
-        {reviews.map((review, i) => (
-          <FadeIn key={review.id} delay={i * 60}>
-            <div
-              className="flex-shrink-0 flex flex-col gap-4 p-6 rounded-2xl"
-              style={{
-                width: "clamp(260px, 30vw, 340px)",
-                background: "white",
-                border: "1px solid #e8ddd5",
-              }}
-            >
-              {/* Étoiles */}
-              <div className="flex gap-0.5">
-                {[1,2,3,4,5].map((s) => (
-                  <Star key={s} size={14} fill={s <= review.rating ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
-                ))}
-              </div>
-              {/* Commentaire */}
-              <p className="text-sm leading-relaxed flex-1" style={{ color: "#5a3f30" }}>
-                &ldquo;{review.comment}&rdquo;
-              </p>
-              {/* Auteur */}
-              <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "#f0e8e0" }}>
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0" style={{ background: "#c0826a" }}>
-                  {review.userName?.[0]?.toUpperCase() ?? "?"}
+        {reviews.map((review, i) => {
+          const product = products[review.productId];
+          return (
+            <FadeIn key={review.id} delay={i * 60}>
+              <div
+                className="flex-shrink-0 flex flex-col gap-4 p-6 rounded-2xl"
+                style={{
+                  width: "clamp(260px, 30vw, 340px)",
+                  background: "white",
+                  border: "1px solid #e8ddd5",
+                }}
+              >
+                {/* Étoiles */}
+                <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} size={14} fill={s <= review.rating ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
+                  ))}
                 </div>
-                <p className="text-xs font-medium" style={{ color: "#3d2b1f" }}>{review.userName}</p>
+                {/* Commentaire */}
+                <p className="text-sm leading-relaxed flex-1" style={{ color: "#5a3f30" }}>
+                  &ldquo;{review.comment}&rdquo;
+                </p>
+                {/* Auteur */}
+                <div className="flex items-center gap-2" style={{ color: "#3d2b1f" }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0" style={{ background: "#c0826a" }}>
+                    {review.userName?.[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <p className="text-xs font-medium">{review.userName}</p>
+                </div>
+                {/* Produit lié */}
+                {product && (
+                  <Link
+                    href={`/produits/${product.slug}`}
+                    className="flex items-center gap-3 pt-3 border-t group"
+                    style={{ borderColor: "#f0e8e0" }}
+                  >
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "#fdf3ee" }}>
+                      {product.imageUrl && (
+                        <Image src={product.imageUrl} alt={product.name} fill sizes="40px" className="object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate group-hover:underline" style={{ color: "#3d2b1f" }}>{product.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#c0826a" }}>Voir le produit →</p>
+                    </div>
+                  </Link>
+                )}
               </div>
-            </div>
-          </FadeIn>
-        ))}
+            </FadeIn>
+          );
+        })}
       </div>
     </section>
   );
