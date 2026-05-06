@@ -6,14 +6,23 @@ import { db } from "@/lib/firebase";
 import type { Product } from "@/lib/types";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Mail, MapPin } from "lucide-react";
+import { ArrowRight, Mail, MapPin, Star } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCategories } from "@/lib/categories";
 import type { Category } from "@/lib/categories";
 const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
 
+interface Review {
+  id: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: { seconds: number } | null;
+}
+
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const { categories }: { categories: Category[] } = useCategories();
 
   useEffect(() => {
@@ -33,7 +42,19 @@ export default function HomePage() {
         setFeaturedProducts([]);
       }
     }
+    async function loadReviews() {
+      try {
+        const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(50)));
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Review));
+        // Garde uniquement les avis avec commentaire et note >= 4, max 12
+        const best = all.filter((r) => r.rating >= 4 && r.comment?.trim()).slice(0, 12);
+        setReviews(best);
+      } catch {
+        setReviews([]);
+      }
+    }
     load();
+    loadReviews();
   }, []);
 
   return (
@@ -202,6 +223,11 @@ export default function HomePage() {
       {featuredProducts.length > 0 && (
         <CoupsDeCoeur products={featuredProducts} />
       )}
+
+      {/* ══════════════════════════════════════
+          SECTION — Avis clients
+      ══════════════════════════════════════ */}
+      {reviews.length > 0 && <ReviewsSection reviews={reviews} />}
 
       {/* ══════════════════════════════════════
           SECTION — La femme derrière l'atelier
@@ -475,6 +501,109 @@ function CoupsDeCoeur({ products }: { products: Product[] }) {
               <p className="text-xs mt-0.5" style={{ color: "#b09080" }}>Pièce unique · Fait main</p>
             </div>
           </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── Section avis clients ── */
+function ReviewsSection({ reviews }: { reviews: Review[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  function onMouseDown(e: React.MouseEvent) {
+    isDragging.current = true;
+    hasDragged.current = false;
+    startX.current = e.pageX - (scrollRef.current?.offsetLeft ?? 0);
+    scrollLeft.current = scrollRef.current?.scrollLeft ?? 0;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grabbing";
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.2;
+    if (Math.abs(walk) > 4) hasDragged.current = true;
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  }
+  function onMouseUp() {
+    isDragging.current = false;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grab";
+  }
+
+  const avg = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10;
+
+  return (
+    <section style={{ background: "#fdf3ee", borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5" }} className="py-14 md:py-20">
+      <div className="max-w-6xl mx-auto px-6 mb-10">
+        <FadeIn>
+          <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-2" style={{ color: "#c0826a" }}>Ce qu&apos;elles disent</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Avis de mes clientes</h2>
+            </div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex gap-0.5">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} size={16} fill={s <= Math.round(avg) ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
+                ))}
+              </div>
+              <span className="text-sm font-semibold" style={{ color: "#3d2b1f" }}>{avg}/5</span>
+              <span className="text-xs" style={{ color: "#b09080" }}>({reviews.length} avis)</span>
+            </div>
+          </div>
+        </FadeIn>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto select-none"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          paddingLeft: "max(1.5rem, calc((100vw - 72rem) / 2 + 1.5rem))",
+          paddingRight: "clamp(1.5rem, 5vw, 3rem)",
+          paddingBottom: 8,
+          cursor: "grab",
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+      >
+        {reviews.map((review, i) => (
+          <FadeIn key={review.id} delay={i * 60}>
+            <div
+              className="flex-shrink-0 flex flex-col gap-4 p-6 rounded-2xl"
+              style={{
+                width: "clamp(260px, 30vw, 340px)",
+                background: "white",
+                border: "1px solid #e8ddd5",
+              }}
+            >
+              {/* Étoiles */}
+              <div className="flex gap-0.5">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} size={14} fill={s <= review.rating ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
+                ))}
+              </div>
+              {/* Commentaire */}
+              <p className="text-sm leading-relaxed flex-1" style={{ color: "#5a3f30" }}>
+                &ldquo;{review.comment}&rdquo;
+              </p>
+              {/* Auteur */}
+              <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "#f0e8e0" }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0" style={{ background: "#c0826a" }}>
+                  {review.userName?.[0]?.toUpperCase() ?? "?"}
+                </div>
+                <p className="text-xs font-medium" style={{ color: "#3d2b1f" }}>{review.userName}</p>
+              </div>
+            </div>
+          </FadeIn>
         ))}
       </div>
     </section>
