@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
-import { LayoutDashboard, Package, ShoppingCart, Shield, Tag, MessageSquare, ChevronLeft, ChevronRight, Camera, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Shield, Tag, MessageSquare, ChevronLeft, ChevronRight, Camera, FolderOpen, Star } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/commandes", label: "Commandes", icon: ShoppingCart },
   { href: "/admin/promos", label: "Codes promo", icon: Tag },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
+  { href: "/admin/avis", label: "Avis", icon: Star },
   { href: "/admin/photos", label: "Photos", icon: Camera },
 ];
 

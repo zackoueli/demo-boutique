@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  collection, query, where, getDocs, addDoc, serverTimestamp,
+  collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -48,7 +48,6 @@ export default function ProductReviews({ productId }: { productId: string }) {
   const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasOrdered, setHasOrdered] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(5);
@@ -69,18 +68,6 @@ export default function ProductReviews({ productId }: { productId: string }) {
   useEffect(() => {
     loadReviews();
   }, [productId]);
-
-  useEffect(() => {
-    if (!user) return;
-    // Vérifie si l'utilisateur a commandé ce produit
-    getDocs(query(collection(db, "orders"), where("userId", "==", user.uid))).then((snap) => {
-      const ordered = snap.docs.some((d) => {
-        const items = d.data().items ?? [];
-        return items.some((item: { productId: string }) => item.productId === productId);
-      });
-      setHasOrdered(ordered);
-    });
-  }, [user, productId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +113,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
             </div>
           )}
         </div>
-        {user && hasOrdered && !hasReviewed && !showForm && (
+        {user && !hasReviewed && !showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="px-5 py-2.5 bg-brown text-cream text-sm font-medium rounded-xl hover:bg-brown-mid transition-colors"
@@ -168,14 +155,11 @@ export default function ProductReviews({ productId }: { productId: string }) {
         </form>
       )}
 
-      {/* Message si non connecté ou n'a pas commandé */}
+      {/* Message si non connecté */}
       {!user && (
         <p className="text-sm text-brown-light mb-6">
-          <a href="/connexion" className="text-terracotta hover:underline">Connectez-vous</a> pour laisser un avis après votre achat.
+          <a href="/connexion" className="text-terracotta hover:underline">Connectez-vous</a> pour laisser un avis.
         </p>
-      )}
-      {user && !hasOrdered && (
-        <p className="text-sm text-brown-light mb-6">Vous pourrez laisser un avis après avoir commandé ce produit.</p>
       )}
 
       {/* Liste des avis */}
