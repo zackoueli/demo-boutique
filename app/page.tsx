@@ -18,6 +18,7 @@ interface Review {
   userName: string;
   rating: number;
   comment: string;
+  featured: boolean;
   createdAt: { seconds: number } | null;
 }
 
@@ -46,9 +47,13 @@ export default function HomePage() {
     }
     async function loadReviews() {
       try {
-        const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(50)));
-        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Review));
-        const best = all.filter((r) => r.rating >= 4 && r.comment?.trim()).slice(0, 12);
+        const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(100)));
+        const all = snap.docs.map((d) => ({ id: d.id, featured: false, ...d.data() } as Review));
+        // Priorité aux avis mis en avant, sinon fallback sur note >= 4
+        const featured = all.filter((r) => r.featured && r.comment?.trim());
+        const best = featured.length > 0
+          ? featured
+          : all.filter((r) => r.rating >= 4 && r.comment?.trim()).slice(0, 12);
         setReviews(best);
         // Charge les produits associés
         const productIds = [...new Set(best.map((r) => r.productId).filter(Boolean))];
