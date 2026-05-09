@@ -234,6 +234,51 @@ export default function HomePage() {
       )}
 
       {/* ══════════════════════════════════════
+          SECTION — Création sur mesure
+      ══════════════════════════════════════ */}
+      <FadeIn>
+        <section className="max-w-6xl mx-auto px-6 py-6 md:py-8">
+          <div
+            className="relative overflow-hidden rounded-3xl px-8 md:px-14 py-10 md:py-12 flex flex-col md:flex-row items-center gap-8"
+            style={{ background: "linear-gradient(120deg, #fdf3ee 0%, #f5e6da 100%)", border: "1px solid #e8ddd5" }}
+          >
+            {/* Lumière décorative */}
+            <div className="absolute right-0 top-0 w-64 h-64 pointer-events-none" style={{
+              background: "radial-gradient(circle at top right, rgba(192,130,106,0.18) 0%, transparent 65%)"
+            }} />
+
+            {/* Icône */}
+            <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "rgba(192,130,106,0.12)" }}>
+              ✦
+            </div>
+
+            {/* Texte */}
+            <div className="flex-1 text-center md:text-left">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] mb-2" style={{ color: "#c0826a" }}>Création personnalisée</p>
+              <h3 className="font-serif text-2xl md:text-3xl font-semibold leading-snug mb-2" style={{ color: "#3d2b1f" }}>
+                Envie d&apos;une pièce unique,<br className="hidden md:block" /> entièrement pensée par vous ?
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "#8a6858", maxWidth: "52ch" }}>
+                Bijou, objet déco, porte-clef… Si vous ne trouvez pas exactement ce que vous cherchez dans le catalogue,
+                contactez-moi et créons-le ensemble.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <div className="flex-shrink-0">
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-medium text-white transition-all hover:opacity-90"
+                style={{ background: "#3d2b1f" }}
+              >
+                <Mail size={14} /> Me contacter
+              </Link>
+            </div>
+          </div>
+        </section>
+      </FadeIn>
+
+      {/* ══════════════════════════════════════
           SECTION — Mes coups de cœur
       ══════════════════════════════════════ */}
       {featuredProducts.length > 0 && (
