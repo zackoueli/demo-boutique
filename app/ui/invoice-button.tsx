@@ -42,29 +42,65 @@ export default function InvoiceButton({ order, variant = "default", className }:
       const sand: [number, number, number] = [240, 235, 228];
       const white: [number, number, number] = [250, 248, 245];
 
+      // ── Infos vendeur ──
+      const SELLER = {
+        name: "Histoire Eternelle - L'Atelier d'Anaïs",
+        owner: "Anaïs Sonrier",
+        address: "1 route de Mohon",
+        postalCity: "56120 Lanouée, France",
+        siret: "103 330 692 000 15",
+        status: "Micro-entreprise",
+        tva: "TVA non applicable, art. 293B du CGI",
+        email: "historieeternelle.latelier@gmail.com",
+      };
+
+      // ── Numéro de facture séquentiel basé sur l'ID commande ──
+      const createdAtSeconds = (order.createdAt as unknown as { seconds: number } | null)?.seconds ?? Date.now() / 1000;
+      const invoiceNumber = `FA-${new Date(createdAtSeconds * 1000).getFullYear()}-${order.id}`;
+
       // ── Header brun ──
       doc.setFillColor(...brown);
-      doc.rect(0, 0, W, 42, "F");
+      doc.rect(0, 0, W, 52, "F");
+
+      // Logo SVG simplifié — diamant stylisé
+      doc.setFillColor(232, 213, 176);
+      doc.triangle(margin, 22, margin + 7, 14, margin + 14, 22, "F");
+      doc.setFillColor(192, 88, 58);
+      doc.triangle(margin, 22, margin + 7, 30, margin + 14, 22, "F");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(20);
+      doc.setFontSize(18);
       doc.setTextColor(...white);
-      doc.text("FACTURE", margin, 20);
+      doc.text("FACTURE", margin + 18, 21);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setTextColor(200, 180, 154);
-      doc.text(`Réf. commande : ${order.id}`, margin, 28);
-      doc.text(`Date : ${formatDate(order.createdAt)}`, margin, 34);
+      doc.text(`N° ${invoiceNumber}`, margin + 18, 28);
+      doc.text(`Date : ${formatDate(order.createdAt)}`, margin + 18, 34);
 
-      y = 55;
+      // Infos vendeur côté droit dans le header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...white);
+      doc.text(SELLER.name, W - margin, 16, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(200, 180, 154);
+      doc.text(SELLER.address, W - margin, 22, { align: "right" });
+      doc.text(SELLER.postalCity, W - margin, 27, { align: "right" });
+      doc.text(`SIRET : ${SELLER.siret}`, W - margin, 32, { align: "right" });
+      doc.text(SELLER.status, W - margin, 37, { align: "right" });
+      doc.text(SELLER.email, W - margin, 42, { align: "right" });
+
+      y = 65;
 
       // ── Bloc client ──
       doc.setFillColor(...sand);
-      doc.roundedRect(margin, y, contentW, 32, 3, 3, "F");
+      doc.roundedRect(margin, y, contentW / 2 - 4, 34, 3, 3, "F");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setTextColor(...light);
       doc.text("FACTURÉ À", margin + 8, y + 8);
 
@@ -74,9 +110,10 @@ export default function InvoiceButton({ order, variant = "default", className }:
       doc.text(order.shipping.fullName, margin + 8, y + 16);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setTextColor(...light);
-      doc.text(order.userEmail, margin + 8, y + 22);
+      doc.text(order.userEmail, margin + 8, y + 23);
+      doc.text(`Commande : ${order.id}`, margin + 8, y + 29);
 
       // ── Bloc livraison ──
       const isRelay = order.shipping.type === "relay";
@@ -96,23 +133,23 @@ export default function InvoiceButton({ order, variant = "default", className }:
             order.shipping.country,
           ];
 
-      const addrBlockH = 14 + addrLines.length * 5;
+      const addrBlockH = Math.max(34, 14 + addrLines.length * 5.5);
       doc.setFillColor(...sand);
-      doc.roundedRect(W / 2 + 2, y, contentW / 2 - 2, addrBlockH, 3, 3, "F");
+      doc.roundedRect(margin + contentW / 2 + 4, y, contentW / 2 - 4, addrBlockH, 3, 3, "F");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setTextColor(...light);
-      doc.text(isRelay ? "LIVRAISON POINT RELAIS" : "ADRESSE DE LIVRAISON", W / 2 + 10, y + 8);
+      doc.text(isRelay ? "LIVRAISON POINT RELAIS" : "ADRESSE DE LIVRAISON", margin + contentW / 2 + 12, y + 8);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setTextColor(...brown);
       addrLines.forEach((line, i) => {
-        doc.text(line, W / 2 + 10, y + 15 + i * 5);
+        doc.text(line, margin + contentW / 2 + 12, y + 16 + i * 5.5);
       });
 
-      y += Math.max(32, addrBlockH) + 14;
+      y += Math.max(34, addrBlockH) + 14;
 
       // ── Tableau articles ──
       // En-tête tableau
@@ -208,22 +245,33 @@ export default function InvoiceButton({ order, variant = "default", className }:
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(...light);
-      doc.text(
-        `Paiement par carte bancaire — se terminant par ${order.payment.last4}`,
-        margin,
-        y
-      );
+      doc.text("Paiement par carte bancaire via Stripe", margin, y);
+
+      y += 10;
+
+      // ── Mention TVA ──
+      doc.setFillColor(245, 242, 238);
+      doc.roundedRect(margin, y, contentW, 10, 2, 2, "F");
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...light);
+      doc.text(SELLER.tva, margin + 4, y + 6.5);
 
       // ── Footer ──
-      const footerY = 285;
+      const footerY = 278;
       doc.setFillColor(...brown);
-      doc.rect(0, footerY - 4, W, 16, "F");
-      doc.setFont("helvetica", "normal");
+      doc.rect(0, footerY, W, 20, "F");
+
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
+      doc.setTextColor(...white);
+      doc.text(SELLER.name, W / 2, footerY + 6, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
       doc.setTextColor(200, 180, 154);
-      doc.text("Merci pour votre confiance.", W / 2, footerY + 3, { align: "center" });
-      doc.setTextColor(139, 111, 94);
-      doc.text(`© ${new Date().getFullYear()} — Histoire Eternelle - L'Atelier d'Anaïs`, W / 2, footerY + 8, { align: "center" });
+      doc.text(`${SELLER.address} — ${SELLER.postalCity}  ·  SIRET : ${SELLER.siret}  ·  ${SELLER.email}`, W / 2, footerY + 12, { align: "center" });
+      doc.text("Merci pour votre confiance !", W / 2, footerY + 17, { align: "center" });
 
       doc.save(`facture-${order.id}.pdf`);
     } finally {
