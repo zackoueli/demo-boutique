@@ -10,6 +10,10 @@ import { formatPrice, generateOrderId } from "@/lib/utils";
 import type { RelayPoint } from "@/lib/types";
 import Link from "next/link";
 import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store, Search, Clock } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 /* ─── Seuil livraison offerte ─── */
 const FREE_SHIPPING_THRESHOLD = 8000; // 80€ en centimes
@@ -246,11 +250,13 @@ export default function CheckoutPage() {
 
   const selectedCarrier = CARRIERS.find((c) => c.id === selectedCarrierId) ?? CARRIERS[0];
 
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [orderId] = useState(() => generateOrderId());
+
   const [form, setForm] = useState({
     fullName: profile?.displayName ?? "",
     email: user?.email ?? "",
     address: "", city: "", postalCode: "", country: "France",
-    cardNumber: "", cardExpiry: "", cardCvc: "",
   });
 
   // Pré-remplir la recherche relais depuis l'adresse domicile
@@ -325,117 +331,92 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (items.length === 0) return;
 
-    // Validation JS avant soumission
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailRegex.test(form.email)) {
-      setError("L'adresse email saisie n'est pas valide.");
-      return;
-    }
+    if (!emailRegex.test(form.email)) { setError("L'adresse email saisie n'est pas valide."); return; }
     const postalRegex = /^\d{5}$/;
-    if (deliveryType === "home" && !postalRegex.test(form.postalCode)) {
-      setError("Le code postal doit contenir exactement 5 chiffres.");
-      return;
-    }
-    if (deliveryType === "relay" && !selectedRelay) {
-      setError("Veuillez sélectionner un point relais.");
-      return;
-    }
+    if (deliveryType === "home" && !postalRegex.test(form.postalCode)) { setError("Le code postal doit contenir exactement 5 chiffres."); return; }
+    if (deliveryType === "relay" && !selectedRelay) { setError("Veuillez sélectionner un point relais."); return; }
+
     setLoading(true); setError("");
     try {
-      const orderId = generateOrderId();
-      const shippingData = deliveryType === "relay"
-        ? {
-            type: "relay" as const,
-            fullName: form.fullName,
-            address: selectedRelay!.address,
-            city: selectedRelay!.city,
-            postalCode: selectedRelay!.postalCode,
-            country: "France",
-            relayPoint: selectedRelay,
-            carrier: selectedCarrier.name,
-          }
-        : {
-            type: "home" as const,
-            fullName: form.fullName,
-            address: form.address,
-            city: form.city,
-            postalCode: form.postalCode,
-            country: form.country,
-          };
-
-      // Firestore rejette les valeurs undefined — on nettoie les items
-      const sanitizedItems = items.map((item) => {
-        const clean: Record<string, unknown> = {
-          cartItemId: item.cartItemId,
-          productId: item.productId,
-          name: item.name,
-          price: item.price,
-          basePrice: item.basePrice,
-          imageUrl: item.imageUrl,
-          quantity: item.quantity,
-        };
-        if (item.customization) clean.customization = item.customization;
-        if (item.customizationLabels) clean.customizationLabels = item.customizationLabels;
-        if (item.customizationExtra) clean.customizationExtra = item.customizationExtra;
-        return clean;
-      });
-
-      await addDoc(collection(db, "orders"), {
-        id: orderId, userId: user?.uid ?? null, userEmail: form.email,
-        status: "pending", items: sanitizedItems,
-        shipping: shippingData,
-        payment: { last4: form.cardNumber.replace(/\s/g, "").slice(-4), method: "card" },
-        subtotal: total,
-        discount,
-        promoCode: promoResult?.code ?? null,
-        shippingCost,
-        total: finalTotal,
-        createdAt: serverTimestamp(),
-      });
-      if (promoResult) {
-        await updateDoc(doc(db, "promoCodes", promoResult.id), { usageCount: ((promoResult as { usageCount?: number }).usageCount ?? 0) + 1 });
-      }
-      await Promise.all(
-        items.map(async (item) => {
-          const productRef = doc(db, "products", item.productId);
-          const snap = await getDoc(productRef);
-          if (snap.exists()) {
-            const newStock = Math.max(0, (snap.data().stock ?? 0) - item.quantity);
-            await updateDoc(productRef, { stock: newStock });
-          }
-        })
-      );
-      // Envoi email de confirmation (fire & forget — ne bloque pas la redirection)
-      fetch("/api/send-confirmation", {
+      const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId,
-          userEmail: form.email,
-          items: sanitizedItems,
-          shipping: shippingData,
-          subtotal: total,
-          shippingCost,
-          discount,
-          promoCode: promoResult?.code ?? null,
-          total: finalTotal,
-        }),
-      }).catch(() => {}); // échec silencieux côté client
-
-      clearCart();
-      router.push(`/confirmation/${orderId}`);
+        body: JSON.stringify({ amount: finalTotal, orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.clientSecret) throw new Error(data.error ?? "Erreur Stripe");
+      setClientSecret(data.clientSecret);
     } catch (err) {
-      console.error("[checkout] Erreur lors de la création de commande:", err);
-      if (err instanceof Error && err.message.includes("permission")) {
-        setError("Erreur d'autorisation. Veuillez vous reconnecter et réessayer.");
-      } else if (err instanceof Error && err.message.includes("network")) {
-        setError("Erreur réseau. Vérifiez votre connexion internet.");
-      } else {
-        setError("Une erreur est survenue lors de la création de votre commande. Veuillez réessayer.");
-      }
+      console.error("[checkout] Erreur PaymentIntent:", err);
+      setError("Impossible d'initialiser le paiement. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function confirmOrder(paymentIntentId: string) {
+    const shippingData = deliveryType === "relay"
+      ? {
+          type: "relay" as const,
+          fullName: form.fullName,
+          address: selectedRelay!.address,
+          city: selectedRelay!.city,
+          postalCode: selectedRelay!.postalCode,
+          country: "France",
+          relayPoint: selectedRelay,
+          carrier: selectedCarrier.name,
+        }
+      : {
+          type: "home" as const,
+          fullName: form.fullName,
+          address: form.address,
+          city: form.city,
+          postalCode: form.postalCode,
+          country: form.country,
+        };
+
+    const sanitizedItems = items.map((item) => {
+      const clean: Record<string, unknown> = {
+        cartItemId: item.cartItemId, productId: item.productId, name: item.name,
+        price: item.price, basePrice: item.basePrice, imageUrl: item.imageUrl, quantity: item.quantity,
+      };
+      if (item.customization) clean.customization = item.customization;
+      if (item.customizationLabels) clean.customizationLabels = item.customizationLabels;
+      if (item.customizationExtra) clean.customizationExtra = item.customizationExtra;
+      return clean;
+    });
+
+    await addDoc(collection(db, "orders"), {
+      id: orderId, userId: user?.uid ?? null, userEmail: form.email,
+      status: "pending", items: sanitizedItems, shipping: shippingData,
+      payment: { method: "card", stripePaymentIntentId: paymentIntentId },
+      subtotal: total, discount, promoCode: promoResult?.code ?? null,
+      shippingCost, total: finalTotal, createdAt: serverTimestamp(),
+    });
+
+    if (promoResult) {
+      await updateDoc(doc(db, "promoCodes", promoResult.id), {
+        usageCount: ((promoResult as { usageCount?: number }).usageCount ?? 0) + 1,
+      });
+    }
+
+    await Promise.all(items.map(async (item) => {
+      const productRef = doc(db, "products", item.productId);
+      const snap = await getDoc(productRef);
+      if (snap.exists()) {
+        await updateDoc(productRef, { stock: Math.max(0, (snap.data().stock ?? 0) - item.quantity) });
+      }
+    }));
+
+    fetch("/api/send-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, userEmail: form.email, items: sanitizedItems, shipping: shippingData, subtotal: total, shippingCost, discount, promoCode: promoResult?.code ?? null, total: finalTotal }),
+    }).catch(() => {});
+
+    clearCart();
+    router.push(`/confirmation/${orderId}`);
   }
 
   if (items.length === 0) {
@@ -652,27 +633,24 @@ export default function CheckoutPage() {
           )}
 
           {/* ─── Paiement ─── */}
-          <section>
-            <h2 className="font-serif font-semibold text-brown text-lg mb-1 flex items-center gap-2">
-              <Lock size={15} className="text-brown-light" /> Paiement
-            </h2>
-            <p className="text-xs text-brown-light mb-5">Données factices — démo seulement</p>
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-3">
-                <Field label="Numéro de carte" name="cardNumber" value={form.cardNumber} onChange={handleChange} placeholder="4242 4242 4242 4242" required />
-              </div>
-              <div className="sm:col-span-2">
-                <Field label="Date d'expiration" name="cardExpiry" value={form.cardExpiry} onChange={handleChange} placeholder="MM/AA" required />
-              </div>
-              <Field label="CVC" name="cardCvc" value={form.cardCvc} onChange={handleChange} placeholder="123" required />
-            </div>
-          </section>
-
-          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
-
-          <button type="submit" disabled={loading} className="w-full py-4 bg-brown text-cream font-medium rounded-2xl hover:bg-brown-mid transition-colors disabled:opacity-50 text-sm">
-            {loading ? "Traitement en cours…" : `Payer ${formatPrice(finalTotal)}`}
-          </button>
+          {!clientSecret ? (
+            <>
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
+              <button type="submit" disabled={loading} className="w-full py-4 bg-brown text-cream font-medium rounded-2xl hover:bg-brown-mid transition-colors disabled:opacity-50 text-sm flex items-center justify-center gap-2">
+                <Lock size={14} />
+                {loading ? "Initialisation…" : `Procéder au paiement · ${formatPrice(finalTotal)}`}
+              </button>
+            </>
+          ) : (
+            <Elements stripe={stripePromise} options={{ clientSecret, locale: "fr", appearance: { theme: "stripe", variables: { colorPrimary: "#3d2b1f", borderRadius: "12px", fontFamily: "inherit" } } }}>
+              <StripePaymentForm
+                onSuccess={confirmOrder}
+                onError={setError}
+                finalTotal={finalTotal}
+                orderId={orderId}
+              />
+            </Elements>
+          )}
         </form>
 
         {/* ─── Récapitulatif ─── */}
@@ -772,6 +750,63 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function StripePaymentForm({ onSuccess, onError, finalTotal, orderId }: {
+  onSuccess: (paymentIntentId: string) => Promise<void>;
+  onError: (msg: string) => void;
+  finalTotal: number;
+  orderId: string;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const [localError, setLocalError] = useState("");
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setPaying(true); setLocalError("");
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        redirect: "if_required",
+      });
+      if (error) {
+        setLocalError(error.message ?? "Paiement refusé. Veuillez réessayer.");
+        onError(error.message ?? "Paiement refusé.");
+      } else if (paymentIntent?.status === "succeeded") {
+        await onSuccess(paymentIntent.id);
+      }
+    } catch {
+      setLocalError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handlePay} className="space-y-5">
+      <div className="border border-border rounded-2xl p-5 bg-white">
+        <h2 className="font-serif font-semibold text-brown text-lg mb-4 flex items-center gap-2">
+          <Lock size={15} className="text-brown-light" /> Paiement sécurisé
+        </h2>
+        <PaymentElement />
+      </div>
+      {localError && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{localError}</p>}
+      <button
+        type="submit"
+        disabled={!stripe || paying}
+        className="w-full py-4 bg-brown text-cream font-medium rounded-2xl hover:bg-brown-mid transition-colors disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+      >
+        <Lock size={14} />
+        {paying ? "Paiement en cours…" : `Payer ${formatPrice(finalTotal)}`}
+      </button>
+      <p className="text-xs text-center text-brown-light flex items-center justify-center gap-1">
+        <Lock size={10} /> Paiement sécurisé par Stripe — vos données bancaires ne nous sont jamais transmises
+      </p>
+    </form>
   );
 }
 
