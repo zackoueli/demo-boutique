@@ -15,5 +15,7 @@ export function slugify(str: string): string {
 }
 
 export function generateOrderId(): string {
-  return `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+  const year = new Date().getFullYear();
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `CMD-${year}-${rand}`;
 }
