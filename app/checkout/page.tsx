@@ -632,8 +632,8 @@ export default function CheckoutPage() {
             </section>
           )}
 
-          {/* ─── Paiement ─── */}
-          {!clientSecret ? (
+          {/* ─── Bouton procéder au paiement ─── */}
+          {!clientSecret && (
             <>
               {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
               <button type="submit" disabled={loading} className="w-full py-4 bg-brown text-cream font-medium rounded-2xl hover:bg-brown-mid transition-colors disabled:opacity-50 text-sm flex items-center justify-center gap-2">
@@ -641,7 +641,12 @@ export default function CheckoutPage() {
                 {loading ? "Initialisation…" : `Procéder au paiement · ${formatPrice(finalTotal)}`}
               </button>
             </>
-          ) : (
+          )}
+        </form>
+
+        {/* ─── Formulaire Stripe — hors du form principal pour éviter les conflits ─── */}
+        {clientSecret && (
+          <div className="lg:col-span-2">
             <Elements stripe={stripePromise} options={{ clientSecret, locale: "fr", appearance: { theme: "stripe", variables: { colorPrimary: "#3d2b1f", borderRadius: "12px", fontFamily: "inherit" } } }}>
               <StripePaymentForm
                 onSuccess={confirmOrder}
@@ -650,8 +655,8 @@ export default function CheckoutPage() {
                 orderId={orderId}
               />
             </Elements>
-          )}
-        </form>
+          </div>
+        )}
 
         {/* ─── Récapitulatif ─── */}
         <div className="bg-sand border border-border rounded-2xl p-6 h-fit space-y-5">
