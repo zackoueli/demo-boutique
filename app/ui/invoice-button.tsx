@@ -62,16 +62,22 @@ export default function InvoiceButton({ order, variant = "default", className }:
       doc.setFillColor(...brown);
       doc.rect(0, 0, W, 52, "F");
 
-      // Logo SVG simplifié — diamant stylisé
-      doc.setFillColor(232, 213, 176);
-      doc.triangle(margin, 22, margin + 7, 14, margin + 14, 22, "F");
-      doc.setFillColor(192, 88, 58);
-      doc.triangle(margin, 22, margin + 7, 30, margin + 14, 22, "F");
+      // Logo PNG
+      try {
+        const logoRes = await fetch("/logo.png");
+        const logoBlob = await logoRes.blob();
+        const logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(logoBlob);
+        });
+        doc.addImage(logoBase64, "PNG", margin, 8, 18, 18);
+      } catch { /* logo non disponible */ }
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(...white);
-      doc.text("FACTURE", margin + 18, 21);
+      doc.text("FACTURE", margin + 22, 21);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
