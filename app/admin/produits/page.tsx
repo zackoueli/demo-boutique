@@ -81,14 +81,41 @@ export default function AdminProduitsPage() {
     const ext = file.name.split(".").pop() ?? "jpg";
     const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
     const storageRef = ref(storage, path);
-    const task = uploadBytesResumable(storageRef, file);
+
+    // Compress large images before upload to avoid mobile network timeouts
+    let uploadFile = file;
+    if (file.size > 2 * 1024 * 1024) {
+      uploadFile = await new Promise<File>((res) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX = 1600;
+          const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((blob) => res(new File([blob!], file.name, { type: "image/jpeg" })), "image/jpeg", 0.85);
+        };
+        img.src = url;
+      });
+    }
+
+    const task = uploadBytesResumable(storageRef, uploadFile);
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        task.cancel();
+        reject(new Error("timeout"));
+      }, 60000);
+
       task.on(
         "state_changed",
         (snap) => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-        (err) => { setUploadProgress(null); reject(err); },
+        (err) => { clearTimeout(timeout); setUploadProgress(null); reject(err); },
         async () => {
+          clearTimeout(timeout);
           setUploadProgress(null);
           const url = await getDownloadURL(task.snapshot.ref);
           resolve(url);
@@ -105,7 +132,16 @@ export default function AdminProduitsPage() {
       setForm((f) => ({ ...f, imageUrl: url }));
     } catch (err) {
       console.error("Upload failed:", err);
-      setUploadError("Échec de l'upload. Vérifiez votre connexion ou les règles Firebase Storage.");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "timeout") {
+        setUploadError("Upload trop lent — essayez avec une image plus petite ou une meilleure connexion.");
+      } else if (msg.includes("unauthorized") || msg.includes("permission")) {
+        setUploadError("Accès refusé — vérifiez que vous êtes bien connecté.");
+      } else if (msg.includes("canceled")) {
+        setUploadError("Upload annulé.");
+      } else {
+        setUploadError(`Échec de l'upload : ${msg || "erreur inconnue"}. Réessayez.`);
+      }
     }
   }
 
