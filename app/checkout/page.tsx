@@ -16,8 +16,8 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 /* ─── Seuil livraison offerte ─── */
-const FREE_SHIPPING_THRESHOLD = 0;    // TEST: livraison toujours offerte
-const HOME_DELIVERY_PRICE = 0;        // TEST: 0€
+const FREE_SHIPPING_THRESHOLD = 8000; // 80€ en centimes
+const HOME_DELIVERY_PRICE = 599;      // 5,99€
 
 /* ─── Transporteurs disponibles ─── */
 const CARRIERS = [
@@ -27,7 +27,7 @@ const CARRIERS = [
     abbr: "MR",
     bgColor: "#E30613",
     desc: "2–4 jours ouvrés",
-    price: 0,
+    price: 399,
   },
   {
     id: "colissimo",
@@ -36,7 +36,7 @@ const CARRIERS = [
     bgColor: "#FFCD00",
     textColor: "#003189",
     desc: "2–3 jours ouvrés",
-    price: 0,
+    price: 599,
   },
   {
     id: "chronopost",
@@ -44,7 +44,7 @@ const CARRIERS = [
     abbr: "CHR",
     bgColor: "#003189",
     desc: "1–2 jours ouvrés",
-    price: 0,
+    price: 999,
   },
   {
     id: "dpd",
@@ -52,7 +52,7 @@ const CARRIERS = [
     abbr: "DPD",
     bgColor: "#DC0032",
     desc: "2–3 jours ouvrés",
-    price: 0,
+    price: 499,
   },
 ];
 
