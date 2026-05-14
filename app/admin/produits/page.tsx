@@ -86,7 +86,7 @@ export default function AdminProduitsPage() {
     let uploadFile = file;
     if (file.size > 2 * 1024 * 1024) {
       uploadFile = await new Promise<File>((res) => {
-        const img = new Image();
+        const img = new window.Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
           const canvas = document.createElement("canvas");
