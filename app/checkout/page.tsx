@@ -56,53 +56,6 @@ const CARRIERS = [
   },
 ];
 
-/* ─── Génération dynamique de points relais ─── */
-const SHOP_TYPES = [
-  "Tabac Presse", "Épicerie Fine", "Pharmacie", "Librairie Papeterie",
-  "Pressing Express", "Supérette", "Bureau de Tabac", "Boulangerie",
-  "Droguerie", "Fleuriste", "Opticien", "Cordonnerie",
-];
-const STREET_TYPES = [
-  "rue", "avenue", "boulevard", "impasse", "allée", "place", "chemin",
-];
-const STREET_NAMES = [
-  "de la République", "Victor Hugo", "du Général de Gaulle", "Jean Jaurès",
-  "de la Liberté", "du Marché", "des Fleurs", "Nationale", "Gambetta",
-  "Foch", "Pasteur", "de la Gare", "du Commerce", "des Écoles",
-];
-const HOURS = [
-  "Lun–Sam 7h–20h", "Lun–Ven 8h–19h, Sam 9h–18h",
-  "Lun–Sam 8h–21h, Dim 9h–13h", "Lun–Ven 9h–18h30",
-  "7j/7 8h–22h", "Lun–Sam 9h–19h30",
-];
-
-function generateRelayPoints(city: string, postalCode: string, carrier: string): RelayPoint[] {
-  // Seed déterministe basé sur le code postal pour des résultats cohérents
-  const seed = postalCode.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const carrierSeed = carrier.length;
-
-  return Array.from({ length: 6 }, (_, i) => {
-    const s = (seed + i * 37 + carrierSeed * 13) % 1000;
-    const shopType = SHOP_TYPES[(s + i * 7) % SHOP_TYPES.length];
-    const streetNum = ((s * (i + 1)) % 120) + 1;
-    const streetType = STREET_TYPES[(s + i) % STREET_TYPES.length];
-    const streetName = STREET_NAMES[(s * 3 + i * 11) % STREET_NAMES.length];
-    const dist = ((s % 18) + i * 3 + 1) / 10;
-    const hours = HOURS[(s + i * 3) % HOURS.length];
-    // Variation légère du CP pour les résultats distants
-    const cpSuffix = i < 3 ? postalCode : String(parseInt(postalCode) + (i % 2 === 0 ? 1 : -1)).padStart(5, "0");
-
-    return {
-      id: `${carrier}-${postalCode}-${i}`,
-      name: `${shopType} ${city.split(" ")[0]}`,
-      address: `${streetNum} ${streetType} ${streetName}`,
-      city,
-      postalCode: cpSuffix,
-      distance: `${dist.toFixed(1)} km`,
-      hours,
-    };
-  });
-}
 
 /* ─── Types API Adresse ─── */
 interface BanFeature {
@@ -315,16 +268,24 @@ export default function CheckoutPage() {
     if (!relaySearchPostal) setRelaySearchPostal(postalCode);
   }
 
-  function searchRelayPoints() {
-    if (!relaySearchPostal.trim() || !relaySearchCity.trim()) return;
+  async function searchRelayPoints() {
+    if (!relaySearchPostal.trim()) return;
     setRelaySearchLoading(true);
     setSelectedRelay(null);
-    setTimeout(() => {
-      const points = generateRelayPoints(relaySearchCity.trim(), relaySearchPostal.trim(), selectedCarrierId);
-      setRelayPoints(points);
+    try {
+      const res = await fetch(`/api/mondial-relay?cp=${encodeURIComponent(relaySearchPostal.trim())}&pays=FR`);
+      const data = await res.json();
+      if (data.points && data.points.length > 0) {
+        setRelayPoints(data.points);
+      } else {
+        setRelayPoints([]);
+      }
+    } catch {
+      setRelayPoints([]);
+    } finally {
       setRelaySearched(true);
       setRelaySearchLoading(false);
-    }, 800); // Simule un appel réseau
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -554,28 +515,21 @@ export default function CheckoutPage() {
                   Points relais {selectedCarrier.name}
                 </h2>
                 <p className="text-xs text-brown-light mb-4">
-                  Entrez votre ville et code postal pour trouver les points les plus proches.
+                  Entrez votre code postal pour trouver les points Mondial Relay les plus proches.
                 </p>
                 <div className="flex gap-2 mb-4">
                   <input
                     type="text"
-                    value={relaySearchCity}
-                    onChange={(e) => setRelaySearchCity(e.target.value)}
-                    placeholder="Ville"
-                    className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
-                  />
-                  <input
-                    type="text"
                     value={relaySearchPostal}
                     onChange={(e) => setRelaySearchPostal(e.target.value)}
-                    placeholder="Code postal"
+                    placeholder="Code postal (ex: 75001)"
                     maxLength={5}
-                    className="w-32 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
+                    className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
                   />
                   <button
                     type="button"
                     onClick={searchRelayPoints}
-                    disabled={relaySearchLoading || !relaySearchCity.trim() || !relaySearchPostal.trim()}
+                    disabled={relaySearchLoading || relaySearchPostal.trim().length < 5}
                     className="flex items-center gap-2 px-4 py-3 bg-brown text-cream rounded-xl text-sm font-medium hover:bg-brown-mid transition-colors disabled:opacity-40"
                   >
                     {relaySearchLoading
