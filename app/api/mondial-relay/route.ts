@@ -43,10 +43,8 @@ export async function GET(req: NextRequest) {
     });
 
     const xml = await res.text();
-    console.log("[mondial-relay] response:", xml.slice(0, 1000));
-
     const points = parseRelayPoints(xml);
-    return NextResponse.json({ points, debug: xml.slice(0, 2000) });
+    return NextResponse.json({ points });
   } catch (err) {
     console.error("[mondial-relay]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -55,7 +53,7 @@ export async function GET(req: NextRequest) {
 
 function parseRelayPoints(xml: string) {
   const points = [];
-  const regex = /<PointRelais_Details>([\s\S]*?)<\/PointRelais_Details>/g;
+  const regex = /<PR\d+>([\s\S]*?)<\/PR\d+>/g;
   let match;
 
   while ((match = regex.exec(xml)) !== null) {
@@ -70,20 +68,6 @@ function parseRelayPoints(xml: string) {
     const address = get("LgAdr3") || get("LgAdr4");
     const cp = get("CP");
     const ville = get("Ville");
-    const dist = get("Dist");
-
-    const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-    const horaires: string[] = [];
-    days.forEach((day) => {
-      const h = get(`Horaires_${day}`);
-      if (h && h !== "0000-0000") {
-        const parts = h.split("-");
-        if (parts.length === 2) {
-          const fmt = (s: string) => `${s.slice(0, 2)}h${s.slice(2) !== "00" ? s.slice(2) : ""}`;
-          horaires.push(`${day.slice(0, 3)} ${fmt(parts[0])}–${fmt(parts[1])}`);
-        }
-      }
-    });
 
     if (id && name) {
       points.push({
@@ -92,8 +76,6 @@ function parseRelayPoints(xml: string) {
         address,
         city: ville,
         postalCode: cp,
-        distance: dist ? `${(parseInt(dist) / 1000).toFixed(1)} km` : undefined,
-        hours: horaires.slice(0, 3).join(", ") || undefined,
       });
     }
   }
