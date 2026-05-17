@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 
 const MR_ENSEIGNE = process.env.MONDIAL_RELAY_ENSEIGNE!;
 const MR_CLE = process.env.MONDIAL_RELAY_CLE!;
 
 function md5(str: string): string {
-  // Implémentation MD5 native via SubtleCrypto n'est pas disponible sync
-  // On utilise une lib ou on fait l'appel sans clé de sécurité (mode test)
-  return str;
+  return createHash("md5").update(str).digest("hex").toUpperCase();
 }
 
 export async function GET(req: NextRequest) {
@@ -17,10 +16,8 @@ export async function GET(req: NextRequest) {
   if (!cp) return NextResponse.json({ error: "Code postal requis" }, { status: 400 });
 
   try {
-    // Calcul de la clé de sécurité MD5
-    const keyStr = `${MR_ENSEIGNE}${cp}${pays}${MR_CLE}`;
+    const security = md5(`${MR_ENSEIGNE}${pays}${cp}${MR_CLE}`);
 
-    // Appel SOAP Mondial Relay
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -31,7 +28,7 @@ export async function GET(req: NextRequest) {
       <Pays>${pays}</Pays>
       <CP>${cp}</CP>
       <Nombre>7</Nombre>
-      <Security>${keyStr}</Security>
+      <Security>${security}</Security>
     </WSI2_RecherchePointRelais>
   </soap:Body>
 </soap:Envelope>`;
@@ -46,10 +43,9 @@ export async function GET(req: NextRequest) {
     });
 
     const xml = await res.text();
+    console.log("[mondial-relay] response:", xml.slice(0, 500));
 
-    // Parse XML simple
     const points = parseRelayPoints(xml);
-
     return NextResponse.json({ points });
   } catch (err) {
     console.error("[mondial-relay]", err);
@@ -76,17 +72,15 @@ function parseRelayPoints(xml: string) {
     const ville = get("Ville");
     const dist = get("Dist");
 
-    // Horaires
-    const horaires: string[] = [];
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-    const dayTags = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-    dayTags.forEach((day, i) => {
+    const horaires: string[] = [];
+    days.forEach((day) => {
       const h = get(`Horaires_${day}`);
       if (h && h !== "0000-0000") {
         const parts = h.split("-");
         if (parts.length === 2) {
           const fmt = (s: string) => `${s.slice(0, 2)}h${s.slice(2) !== "00" ? s.slice(2) : ""}`;
-          horaires.push(`${days[i].slice(0, 3)} ${fmt(parts[0])}–${fmt(parts[1])}`);
+          horaires.push(`${day.slice(0, 3)} ${fmt(parts[0])}–${fmt(parts[1])}`);
         }
       }
     });
