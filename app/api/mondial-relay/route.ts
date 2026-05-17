@@ -43,10 +43,10 @@ export async function GET(req: NextRequest) {
     });
 
     const xml = await res.text();
-    console.log("[mondial-relay] response:", xml.slice(0, 500));
+    console.log("[mondial-relay] response:", xml.slice(0, 1000));
 
     const points = parseRelayPoints(xml);
-    return NextResponse.json({ points });
+    return NextResponse.json({ points, debug: xml.slice(0, 2000) });
   } catch (err) {
     console.error("[mondial-relay]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
