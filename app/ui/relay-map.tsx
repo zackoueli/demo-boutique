@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { RelayPoint } from "@/lib/types";
+import "leaflet/dist/leaflet.css";
 
 interface RelayMapProps {
   points: (RelayPoint & { lat?: number; lng?: number })[];
@@ -23,7 +24,6 @@ export default function RelayMap({ points, selected, onSelect }: RelayMapProps) 
 
     async function init() {
       const L = (await import("leaflet")).default;
-      await import("leaflet/dist/leaflet.css");
 
       // Fix icônes Leaflet avec webpack
       delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
