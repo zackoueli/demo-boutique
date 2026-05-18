@@ -489,28 +489,45 @@ export default function CheckoutPage() {
               <div>
                 <h2 className="font-serif font-semibold text-brown text-lg mb-4">Transporteur</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {CARRIERS.map((carrier) => (
-                    <button
-                      key={carrier.id}
-                      type="button"
-                      onClick={() => setSelectedCarrierId(carrier.id)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                        selectedCarrierId === carrier.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
-                      }`}
-                    >
-                      <CarrierBadge carrier={carrier} />
-                      <div className="text-center">
-                        <p className={`text-xs font-semibold ${selectedCarrierId === carrier.id ? "text-brown" : "text-brown-mid"}`}>
-                          {carrier.name}
-                        </p>
-                        <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
-                        <p className={`text-xs font-medium mt-0.5 ${carrier.price === 0 ? "text-green-700" : "text-terracotta"}`}>
-                          {carrier.price === 0 ? "Offert" : formatPrice(carrier.price)}
-                        </p>
+                  {CARRIERS.map((carrier) => {
+                    const available = carrier.id === "mondial-relay";
+                    return available ? (
+                      <button
+                        key={carrier.id}
+                        type="button"
+                        onClick={() => setSelectedCarrierId(carrier.id)}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                          selectedCarrierId === carrier.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
+                        }`}
+                      >
+                        <CarrierBadge carrier={carrier} />
+                        <div className="text-center">
+                          <p className={`text-xs font-semibold ${selectedCarrierId === carrier.id ? "text-brown" : "text-brown-mid"}`}>
+                            {carrier.name}
+                          </p>
+                          <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
+                          <p className={`text-xs font-medium mt-0.5 ${carrier.price === 0 ? "text-green-700" : "text-terracotta"}`}>
+                            {carrier.price === 0 ? "Offert" : formatPrice(carrier.price)}
+                          </p>
+                        </div>
+                        {selectedCarrierId === carrier.id && <Check size={13} className="text-brown" />}
+                      </button>
+                    ) : (
+                      <div
+                        key={carrier.id}
+                        className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-border bg-cream/50 opacity-50 cursor-not-allowed"
+                      >
+                        <CarrierBadge carrier={carrier} />
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-brown-mid">{carrier.name}</p>
+                          <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 mt-1 inline-block">
+                            Indisponible
+                          </span>
+                        </div>
                       </div>
-                      {selectedCarrierId === carrier.id && <Check size={13} className="text-brown" />}
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
