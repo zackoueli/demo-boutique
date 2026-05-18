@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import type { RelayPoint } from "@/lib/types";
-import "leaflet/dist/leaflet.css";
 
 interface RelayMapProps {
   points: (RelayPoint & { lat?: number; lng?: number })[];
@@ -16,6 +15,17 @@ export default function RelayMap({ points, selected, onSelect }: RelayMapProps) 
   const markersRef = useRef<unknown[]>([]);
 
   const validPoints = points.filter((p) => p.lat && p.lng);
+
+  useEffect(() => {
+    // Inject Leaflet CSS via CDN if not already present
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current || validPoints.length === 0) return;
