@@ -12,6 +12,9 @@ import Link from "next/link";
 import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store, Search, Clock } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import dynamic from "next/dynamic";
+
+const RelayMap = dynamic(() => import("@/app/ui/relay-map"), { ssr: false });
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -550,36 +553,45 @@ export default function CheckoutPage() {
                 )}
 
                 {relaySearched && !relaySearchLoading && relayPoints.length > 0 && (
-                  <div className="space-y-2">
-                    {relayPoints.map((relay) => (
-                      <button
-                        key={relay.id}
-                        type="button"
-                        onClick={() => setSelectedRelay(relay)}
-                        className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                          selectedRelay?.id === relay.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
-                        }`}
-                      >
-                        <CarrierBadge carrier={selectedCarrier} />
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-medium text-sm ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-mid"}`}>
-                            {relay.name}
-                          </p>
-                          <p className="text-xs text-brown-light mt-0.5">{relay.address}, {relay.postalCode} {relay.city}</p>
-                          {relay.hours && (
-                            <p className="text-xs text-brown-light mt-1 flex items-center gap-1">
-                              <Clock size={10} className="flex-shrink-0" /> {relay.hours}
+                  <div className="space-y-4">
+                    {/* Carte */}
+                    <RelayMap
+                      points={relayPoints}
+                      selected={selectedRelay}
+                      onSelect={setSelectedRelay}
+                    />
+                    {/* Liste */}
+                    <div className="space-y-2">
+                      {relayPoints.map((relay) => (
+                        <button
+                          key={relay.id}
+                          type="button"
+                          onClick={() => setSelectedRelay(relay)}
+                          className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                            selectedRelay?.id === relay.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
+                          }`}
+                        >
+                          <CarrierBadge carrier={selectedCarrier} />
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium text-sm ${selectedRelay?.id === relay.id ? "text-brown" : "text-brown-mid"}`}>
+                              {relay.name}
                             </p>
-                          )}
-                        </div>
-                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                          {relay.distance && (
-                            <span className="text-xs font-medium text-terracotta">{relay.distance}</span>
-                          )}
-                          {selectedRelay?.id === relay.id && <Check size={15} className="text-brown" />}
-                        </div>
-                      </button>
-                    ))}
+                            <p className="text-xs text-brown-light mt-0.5">{relay.address}, {relay.postalCode} {relay.city}</p>
+                            {relay.hours && (
+                              <p className="text-xs text-brown-light mt-1 flex items-center gap-1">
+                                <Clock size={10} className="flex-shrink-0" /> {relay.hours}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                            {relay.distance && (
+                              <span className="text-xs font-medium text-terracotta">{relay.distance}</span>
+                            )}
+                            {selectedRelay?.id === relay.id && <Check size={15} className="text-brown" />}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 

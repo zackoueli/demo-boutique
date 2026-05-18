@@ -8,6 +8,18 @@ function md5(str: string): string {
   return createHash("md5").update(str).digest("hex").toUpperCase();
 }
 
+async function geocode(address: string, cp: string, city: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const q = encodeURIComponent(`${address}, ${cp} ${city}, France`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
+      headers: { "User-Agent": "histoire-eternelle-l-atelier.fr" },
+    });
+    const data = await res.json();
+    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch {}
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const cp = searchParams.get("cp");
@@ -44,7 +56,16 @@ export async function GET(req: NextRequest) {
 
     const xml = await res.text();
     const points = parseRelayPoints(xml);
-    return NextResponse.json({ points });
+
+    // Géocodage en parallèle
+    const geocoded = await Promise.all(
+      points.map(async (p) => {
+        const coords = await geocode(p.address, p.postalCode, p.city);
+        return { ...p, ...coords };
+      })
+    );
+
+    return NextResponse.json({ points: geocoded });
   } catch (err) {
     console.error("[mondial-relay]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -70,13 +91,7 @@ function parseRelayPoints(xml: string) {
     const ville = get("Ville");
 
     if (id && name) {
-      points.push({
-        id,
-        name,
-        address,
-        city: ville,
-        postalCode: cp,
-      });
+      points.push({ id, name, address, city: ville, postalCode: cp });
     }
   }
 
