@@ -65,23 +65,6 @@ const CARRIERS = [
     price: 450,
   },
   {
-    id: "colissimo",
-    name: "Colissimo",
-    abbr: "COL",
-    bgColor: "#FFCD00",
-    textColor: "#003189",
-    desc: "2–3 jours ouvrés",
-    price: 599,
-  },
-  {
-    id: "chronopost",
-    name: "Chronopost",
-    abbr: "CHR",
-    bgColor: "#003189",
-    desc: "1–2 jours ouvrés",
-    price: 999,
-  },
-  {
     id: "dpd",
     name: "DPD",
     abbr: "DPD",
@@ -200,7 +183,7 @@ interface PromoResult {
 }
 
 /* ─── Logo transporteur ─── */
-function CarrierBadge({ carrier }: { carrier: typeof CARRIERS[0] }) {
+function CarrierBadge({ carrier }: { carrier: { abbr: string; bgColor: string; textColor?: string } }) {
   return (
     <span
       className="inline-flex items-center justify-center w-10 h-7 rounded-md text-xs font-bold flex-shrink-0"
