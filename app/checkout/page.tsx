@@ -22,7 +22,39 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 const FREE_SHIPPING_THRESHOLD = 8000; // 80€ en centimes
 const HOME_DELIVERY_PRICE = 599;      // 5,99€
 
-/* ─── Transporteurs disponibles ─── */
+/* ─── Transporteurs livraison à domicile ─── */
+const HOME_CARRIERS = [
+  {
+    id: "colissimo",
+    name: "Colissimo",
+    abbr: "COL",
+    bgColor: "#FFCD00",
+    textColor: "#003189",
+    desc: "2–3 jours ouvrés",
+    price: 599,
+    available: false,
+  },
+  {
+    id: "chronopost",
+    name: "Chronopost",
+    abbr: "CHR",
+    bgColor: "#003189",
+    desc: "1–2 jours ouvrés",
+    price: 999,
+    available: false,
+  },
+  {
+    id: "dpd-home",
+    name: "DPD",
+    abbr: "DPD",
+    bgColor: "#DC0032",
+    desc: "2–3 jours ouvrés",
+    price: 499,
+    available: false,
+  },
+];
+
+/* ─── Transporteurs disponibles (point relais) ─── */
 const CARRIERS = [
   {
     id: "mondial-relay",
@@ -30,7 +62,7 @@ const CARRIERS = [
     abbr: "MR",
     bgColor: "#E30613",
     desc: "2–4 jours ouvrés",
-    price: 399,
+    price: 450,
   },
   {
     id: "colissimo",
@@ -197,6 +229,7 @@ export default function CheckoutPage() {
   // Livraison
   const [deliveryType, setDeliveryType] = useState<"home" | "relay">("home");
   const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
+  const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("colissimo");
   const [relaySearchCity, setRelaySearchCity] = useState("");
   const [relaySearchPostal, setRelaySearchPostal] = useState("");
   const [relayPoints, setRelayPoints] = useState<RelayPoint[]>([]);
@@ -456,18 +489,60 @@ export default function CheckoutPage() {
 
           {/* ─── Section domicile ─── */}
           {deliveryType === "home" && (
-            <section>
-              <h2 className="font-serif font-semibold text-brown text-lg mb-5">Adresse de livraison</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-                <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-                <div className="sm:col-span-2">
-                  <AddressAutocomplete value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} onSelect={handleAddressSelect} />
+            <section className="space-y-6">
+              {/* Choix transporteur domicile */}
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-4">Transporteur</h2>
+                <div className="grid grid-cols-3 gap-2">
+                  {HOME_CARRIERS.map((carrier) => (
+                    carrier.available ? (
+                      <button
+                        key={carrier.id}
+                        type="button"
+                        onClick={() => setSelectedHomeCarrierId(carrier.id)}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                          selectedHomeCarrierId === carrier.id ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
+                        }`}
+                      >
+                        <CarrierBadge carrier={carrier} />
+                        <div className="text-center">
+                          <p className={`text-xs font-semibold ${selectedHomeCarrierId === carrier.id ? "text-brown" : "text-brown-mid"}`}>{carrier.name}</p>
+                          <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
+                          <p className="text-xs font-medium mt-0.5 text-terracotta">{formatPrice(carrier.price)}</p>
+                        </div>
+                        {selectedHomeCarrierId === carrier.id && <Check size={13} className="text-brown" />}
+                      </button>
+                    ) : (
+                      <div
+                        key={carrier.id}
+                        className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-border bg-cream/50 opacity-50 cursor-not-allowed"
+                      >
+                        <CarrierBadge carrier={carrier} />
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-brown-mid">{carrier.name}</p>
+                          <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 mt-1 inline-block">Indisponible</span>
+                        </div>
+                      </div>
+                    )
+                  ))}
                 </div>
-                <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
-                <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
-                <div className="sm:col-span-2">
-                  <Field label="Pays" name="country" value={form.country} onChange={handleChange} required />
+              </div>
+
+              {/* Adresse */}
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-4">Adresse de livraison</h2>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                  <div className="sm:col-span-2">
+                    <AddressAutocomplete value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} onSelect={handleAddressSelect} />
+                  </div>
+                  <Field label="Ville" name="city" value={form.city} onChange={handleChange} required />
+                  <Field label="Code postal" name="postalCode" value={form.postalCode} onChange={handleChange} required />
+                  <div className="sm:col-span-2">
+                    <Field label="Pays" name="country" value={form.country} onChange={handleChange} required />
+                  </div>
                 </div>
               </div>
             </section>
