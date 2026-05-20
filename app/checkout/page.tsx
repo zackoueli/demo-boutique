@@ -41,7 +41,7 @@ const HOME_CARRIERS = [
     bgColor: "#003189",
     desc: "1–2 jours ouvrés",
     price: 999,
-    available: false,
+    available: true,
   },
   {
     id: "dpd-home",
@@ -229,7 +229,7 @@ export default function CheckoutPage() {
   // Livraison
   const [deliveryType, setDeliveryType] = useState<"home" | "relay">("home");
   const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
-  const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("colissimo");
+  const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("chronopost");
   const [relaySearchCity, setRelaySearchCity] = useState("");
   const [relaySearchPostal, setRelaySearchPostal] = useState("");
   const [relayPoints, setRelayPoints] = useState<RelayPoint[]>([]);
@@ -260,7 +260,8 @@ export default function CheckoutPage() {
       : Math.min(total, promoResult.value)
     : 0;
   const afterDiscount = Math.max(0, total - discount);
-  const homeDeliveryCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : HOME_DELIVERY_PRICE;
+  const selectedHomeCarrier = HOME_CARRIERS.find((c) => c.id === selectedHomeCarrierId) ?? HOME_CARRIERS.find((c) => c.available) ?? HOME_CARRIERS[0];
+  const homeDeliveryCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : selectedHomeCarrier.price;
   const shippingCost = deliveryType === "relay" ? selectedCarrier.price : homeDeliveryCost;
   const finalTotal = afterDiscount + shippingCost;
 
@@ -373,6 +374,7 @@ export default function CheckoutPage() {
           city: form.city,
           postalCode: form.postalCode,
           country: form.country,
+          carrier: selectedHomeCarrier.name,
         };
 
     const sanitizedItems = items.map((item) => {
