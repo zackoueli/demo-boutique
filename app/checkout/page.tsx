@@ -55,14 +55,6 @@ const CARRIERS = [
     desc: "2–4 jours ouvrés",
     price: 450,
   },
-  {
-    id: "dpd",
-    name: "DPD",
-    abbr: "DPD",
-    bgColor: "#DC0032",
-    desc: "2–3 jours ouvrés",
-    price: 499,
-  },
 ];
 
 
