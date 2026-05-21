@@ -35,15 +35,6 @@ const HOME_CARRIERS = [
     available: false,
   },
   {
-    id: "chronopost",
-    name: "Chronopost",
-    abbr: "CHR",
-    bgColor: "#003189",
-    desc: "1–2 jours ouvrés",
-    price: 999,
-    available: true,
-  },
-  {
     id: "dpd-home",
     name: "DPD",
     abbr: "DPD",
@@ -210,7 +201,7 @@ export default function CheckoutPage() {
   const [promoLoading, setPromoLoading] = useState(false);
 
   // Livraison
-  const [deliveryType, setDeliveryType] = useState<"home" | "relay">("home");
+  const [deliveryType, setDeliveryType] = useState<"home" | "relay">("relay");
   const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
   const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("chronopost");
   const [relaySearchCity, setRelaySearchCity] = useState("");
@@ -434,26 +425,16 @@ export default function CheckoutPage() {
               <Package size={16} className="text-brown-light" /> Mode de livraison
             </h2>
             <div className="grid sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setDeliveryType("home")}
-                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
-                  deliveryType === "home" ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
-                }`}
-              >
-                <Home size={18} className={deliveryType === "home" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
+              <div className="flex items-start gap-3 p-4 rounded-2xl border-2 border-border bg-cream/50 opacity-50 cursor-not-allowed select-none">
+                <Home size={18} className="text-brown-light mt-0.5" />
                 <div>
-                  <p className={`font-medium text-sm ${deliveryType === "home" ? "text-brown" : "text-brown-mid"}`}>Livraison à domicile</p>
-                  <p className="text-xs text-brown-light mt-0.5">
-                    3–5 jours ouvrés ·{" "}
-                    {homeDeliveryCost === 0
-                      ? <span className="text-green-700 font-medium">Offerte</span>
-                      : <span>{formatPrice(HOME_DELIVERY_PRICE)} <span className="text-brown-light">(offerte dès 80 €)</span></span>
-                    }
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-brown-mid">Livraison à domicile</p>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Bientôt disponible</span>
+                  </div>
+                  <p className="text-xs text-brown-light mt-0.5">Colissimo · DPD</p>
                 </div>
-                {deliveryType === "home" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
-              </button>
+              </div>
 
               <button
                 type="button"
