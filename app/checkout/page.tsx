@@ -824,9 +824,10 @@ function StripePaymentForm({ onSuccess, onError, finalTotal, orderId }: {
       } else if (paymentIntent?.status === "succeeded") {
         try {
           await onSuccess(paymentIntent.id);
-        } catch (confirmErr) {
-          console.error("[checkout] confirmOrder failed after payment:", confirmErr);
-          setLocalError("Votre paiement a été accepté mais une erreur est survenue lors de l'enregistrement de la commande. Notez votre référence de paiement : " + paymentIntent.id + " et contactez-nous.");
+        } catch (confirmErr: unknown) {
+          const msg = confirmErr instanceof Error ? confirmErr.message : String(confirmErr);
+          console.error("[checkout] confirmOrder failed after payment:", msg);
+          setLocalError("Votre paiement a été accepté mais une erreur est survenue lors de l'enregistrement de la commande. Notez votre référence de paiement : " + paymentIntent.id + " et contactez-nous. (Erreur: " + msg + ")");
         }
       }
     } catch {
