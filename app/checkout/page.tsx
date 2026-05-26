@@ -305,10 +305,30 @@ export default function CheckoutPage() {
     try {
       // Stripe exige un minimum de 50 centimes
       const chargeAmount = Math.max(finalTotal, 50);
+      const relayData = deliveryType === "relay" && selectedRelay ? {
+        relayName: selectedRelay.name,
+        relayAddress: selectedRelay.address,
+        relayCity: selectedRelay.city,
+        relayPostal: selectedRelay.postalCode,
+        carrier: selectedCarrier.name,
+      } : {
+        address: form.address,
+        city: form.city,
+        postal: form.postalCode,
+        carrier: selectedHomeCarrier.name,
+      };
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: chargeAmount, orderId }),
+        body: JSON.stringify({
+          amount: chargeAmount,
+          orderId,
+          email: form.email,
+          fullName: form.fullName,
+          deliveryType,
+          ...relayData,
+          items: items.map((i) => `${i.name} x${i.quantity}`).join(", "),
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.clientSecret) throw new Error(data.error ?? "Erreur Stripe");
