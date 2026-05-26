@@ -38,7 +38,8 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
       }
       setOrder(data);
       setLoading(false);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("[confirmation] erreur lecture commande:", err);
       setNotFound(true);
       setLoading(false);
     });
