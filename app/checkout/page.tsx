@@ -438,7 +438,7 @@ export default function CheckoutPage() {
                 <Store size={18} className={deliveryType === "relay" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
                 <div>
                   <p className={`font-medium text-sm ${deliveryType === "relay" ? "text-brown" : "text-brown-mid"}`}>Point relais</p>
-                  <p className="text-xs text-brown-light mt-0.5">Mondial Relay · {formatPrice(399)}</p>
+                  <p className="text-xs text-brown-light mt-0.5">Mondial Relay</p>
                 </div>
                 {deliveryType === "relay" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>
