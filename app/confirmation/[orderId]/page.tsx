@@ -22,7 +22,7 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
   useEffect(() => { props.params.then(({ orderId }) => setOrderId(orderId)); }, [props.params]);
 
   useEffect(() => {
-    if (!orderId || authLoading) return;
+    if (!orderId) return;
 
     getDocs(query(collection(db, "orders"), where("id", "==", orderId), limit(1))).then((snap) => {
       if (snap.empty) {
@@ -31,7 +31,6 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
         return;
       }
       const data = snap.docs[0].data() as Order;
-      // Vérifie que la commande appartient à l'utilisateur connecté (sauf admin ou commande guest)
       if (user && !isAdmin && data.userId !== null && data.userId !== user.uid) {
         setNotFound(true);
         setLoading(false);
@@ -39,8 +38,11 @@ export default function ConfirmationPage(props: { params: Promise<{ orderId: str
       }
       setOrder(data);
       setLoading(false);
+    }).catch(() => {
+      setNotFound(true);
+      setLoading(false);
     });
-  }, [orderId, user, isAdmin, authLoading, router]);
+  }, [orderId, user, isAdmin]);
 
   if (authLoading || loading) {
     return (

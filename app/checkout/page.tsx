@@ -385,14 +385,14 @@ export default function CheckoutPage() {
     if (promoResult) {
       await updateDoc(doc(db, "promoCodes", promoResult.id), {
         usageCount: ((promoResult as { usageCount?: number }).usageCount ?? 0) + 1,
-      });
+      }).catch(() => {});
     }
 
     await Promise.all(items.map(async (item) => {
       const productRef = doc(db, "products", item.productId);
       const snap = await getDoc(productRef);
       if (snap.exists()) {
-        await updateDoc(productRef, { stock: Math.max(0, (snap.data().stock ?? 0) - item.quantity) });
+        await updateDoc(productRef, { stock: Math.max(0, (snap.data().stock ?? 0) - item.quantity) }).catch(() => {});
       }
     }));
 
