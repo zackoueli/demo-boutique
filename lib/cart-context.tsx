@@ -80,5 +80,5 @@ export function useCart() {
 export function buildCartItemId(productId: string, customization?: Record<string, string>): string {
   if (!customization || Object.keys(customization).length === 0) return productId;
   const sorted = Object.keys(customization).sort().map((k) => `${k}:${customization[k]}`).join("|");
-  return `${productId}_${btoa(sorted).slice(0, 12)}`;
+  return `${productId}_${btoa(unescape(encodeURIComponent(sorted))).slice(0, 12)}`;
 }
