@@ -802,7 +802,12 @@ function StripePaymentForm({ onSuccess, onError, finalTotal, orderId }: {
         setLocalError(error.message ?? "Paiement refusé. Veuillez réessayer.");
         onError(error.message ?? "Paiement refusé.");
       } else if (paymentIntent?.status === "succeeded") {
-        await onSuccess(paymentIntent.id);
+        try {
+          await onSuccess(paymentIntent.id);
+        } catch (confirmErr) {
+          console.error("[checkout] confirmOrder failed after payment:", confirmErr);
+          setLocalError("Votre paiement a été accepté mais une erreur est survenue lors de l'enregistrement de la commande. Notez votre référence de paiement : " + paymentIntent.id + " et contactez-nous.");
+        }
       }
     } catch {
       setLocalError("Une erreur est survenue. Veuillez réessayer.");
