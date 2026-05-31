@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isValidEmail, checkRateLimit, getClientIp } from "@/lib/api-helpers";
 
 const FROM = process.env.RESEND_FROM ?? "commandes@demo-boutique.fr";
+const OWNER_EMAIL = process.env.OWNER_EMAIL ?? "";
 
 interface OrderItem {
   name: string;
@@ -143,6 +144,51 @@ function buildHtml(d: ConfirmationPayload): string {
 </html>`;
 }
 
+function buildOwnerHtml(d: ConfirmationPayload): string {
+  const itemsLines = d.items.map((item) => {
+    const custom = item.customizationLabels
+      ? " (" + Object.entries(item.customizationLabels).map(([k, v]) => `${k}: ${v}`).join(", ") + ")"
+      : "";
+    return `<tr>
+      <td style="padding:8px 0;border-bottom:1px solid #e8e0d8;color:#3d2b1f;font-size:14px;">${item.name}${custom} × ${item.quantity}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #e8e0d8;text-align:right;font-weight:600;color:#3d2b1f;font-size:14px;">${formatPrice(item.price * item.quantity)}</td>
+    </tr>`;
+  }).join("");
+
+  const delivery = d.shipping.type === "relay"
+    ? `Point relais : ${d.shipping.relayPoint?.name ?? ""} — ${d.shipping.address}, ${d.shipping.postalCode} ${d.shipping.city} (${d.shipping.carrier ?? ""})`
+    : `Domicile : ${d.shipping.fullName}, ${d.shipping.address}, ${d.shipping.postalCode} ${d.shipping.city}`;
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f0eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0eb;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#faf8f5;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(61,43,31,0.08);">
+        <tr><td style="background:#c0583a;padding:28px 40px;text-align:center;">
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:600;">🛍️ Nouvelle commande reçue</h1>
+          <p style="margin:8px 0 0;color:#fde8df;font-size:13px;">Réf. <strong>${d.orderId}</strong></p>
+        </td></tr>
+        <tr><td style="padding:28px 40px;">
+          <p style="margin:0 0 8px;color:#3d2b1f;font-size:14px;"><strong>Client :</strong> ${d.shipping.fullName} — ${d.userEmail}</p>
+          <p style="margin:0 0 20px;color:#3d2b1f;font-size:14px;"><strong>Livraison :</strong> ${delivery}</p>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${itemsLines}
+            <tr><td style="padding:12px 0 0;font-size:15px;font-weight:700;color:#3d2b1f;border-top:2px solid #e8e0d8;">Total</td>
+                <td style="padding:12px 0 0;text-align:right;font-size:15px;font-weight:700;color:#c0583a;border-top:2px solid #e8e0d8;">${formatPrice(d.total)}</td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="background:#3d2b1f;padding:20px 40px;text-align:center;">
+          <p style="margin:0;color:#c8b49a;font-size:12px;">Histoire Eternelle - L'Atelier d'Anaïs</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
@@ -178,6 +224,16 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error("[send-confirmation] Resend error:", error);
       return NextResponse.json({ ok: false, error }, { status: 500 });
+    }
+
+    // Email de notification à la propriétaire
+    if (OWNER_EMAIL) {
+      await resend.emails.send({
+        from: FROM,
+        to: OWNER_EMAIL,
+        subject: `🛍️ Nouvelle commande · ${body.orderId}`,
+        html: buildOwnerHtml(body),
+      }).catch((e) => console.error("[send-confirmation] Owner email error:", e));
     }
 
     return NextResponse.json({ ok: true });

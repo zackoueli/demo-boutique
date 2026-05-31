@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import Link from "next/link";
 
 type Mode = "login" | "register";
@@ -14,6 +16,8 @@ export default function ConnexionPage() {
   const [form, setForm] = useState({ email: "", password: "", displayName: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Redirect après connexion (email ou retour Google redirect)
   useEffect(() => {
@@ -22,6 +26,19 @@ export default function ConnexionPage() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  }
+
+  async function handleReset() {
+    if (!form.email) { setError("Entrez votre email pour réinitialiser le mot de passe."); return; }
+    setResetLoading(true); setError(""); setResetSent(false);
+    try {
+      await sendPasswordResetEmail(auth, form.email);
+      setResetSent(true);
+    } catch {
+      setError("Impossible d'envoyer l'email. Vérifiez l'adresse saisie.");
+    } finally {
+      setResetLoading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -81,8 +98,23 @@ export default function ConnexionPage() {
           <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="vous@exemple.com" required />
           <Field label="Mot de passe" name="password" type="password" value={form.password} onChange={handleChange} placeholder="••••••••" required />
 
+          {mode === "login" && (
+            <div className="text-right -mt-1">
+              <button type="button" onClick={handleReset} disabled={resetLoading}
+                className="text-xs text-brown-light hover:text-terracotta transition-colors disabled:opacity-50">
+                {resetLoading ? "Envoi…" : "Mot de passe oublié ?"}
+              </button>
+            </div>
+          )}
+
           {error && (
             <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>
+          )}
+
+          {resetSent && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              Un email de réinitialisation a été envoyé à <strong>{form.email}</strong>.
+            </p>
           )}
 
           <button type="submit" disabled={loading}
