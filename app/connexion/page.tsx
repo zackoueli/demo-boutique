@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { sendPasswordResetEmail, fetchSignInMethodsForEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Link from "next/link";
 
@@ -32,6 +32,11 @@ export default function ConnexionPage() {
     if (!form.email) { setError("Entrez votre email pour réinitialiser le mot de passe."); return; }
     setResetLoading(true); setError(""); setResetSent(false);
     try {
+      const methods = await fetchSignInMethodsForEmail(auth, form.email);
+      if (methods.length === 0) {
+        setError("Cette adresse email n'existe pas encore.");
+        return;
+      }
       await sendPasswordResetEmail(auth, form.email);
       setResetSent(true);
     } catch {
