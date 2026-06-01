@@ -11,14 +11,13 @@ import Link from "next/link";
 import { ProductGridSkeleton } from "@/app/ui/skeletons";
 
 export default function SouhaitsPage() {
-  const { items } = useWishlist();
+  const { items, toggle } = useWishlist();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (items.length === 0) { setLoading(false); setProducts([]); return; }
     setLoading(true);
-    // Firestore limite les "in" à 30 éléments
     const chunks = [];
     for (let i = 0; i < items.length; i += 30) chunks.push(items.slice(i, i + 30));
     Promise.all(
@@ -29,10 +28,13 @@ export default function SouhaitsPage() {
       const all = snaps.flatMap((snap) =>
         snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product))
       );
+      // Nettoie les IDs orphelins (produits supprimés)
+      const foundIds = new Set(all.map((p) => p.id));
+      items.forEach((id) => { if (!foundIds.has(id)) toggle(id); });
       setProducts(all);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [items]);
+  }, [items.join(",")]);
 
   return (
     <div className="bg-cream min-h-screen">
