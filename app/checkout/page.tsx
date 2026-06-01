@@ -193,7 +193,7 @@ export default function CheckoutPage() {
   const [promoLoading, setPromoLoading] = useState(false);
 
   // Livraison
-  const [deliveryType, setDeliveryType] = useState<"home" | "relay">("relay");
+  const [deliveryType, setDeliveryType] = useState<"home" | "relay" | "pickup">("relay");
   const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
   const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("chronopost");
   const [relaySearchCity, setRelaySearchCity] = useState("");
@@ -204,6 +204,7 @@ export default function CheckoutPage() {
   const [selectedRelay, setSelectedRelay] = useState<RelayPoint | null>(null);
 
   const selectedCarrier = CARRIERS.find((c) => c.id === selectedCarrierId) ?? CARRIERS[0];
+  const shippingCostPickup = 0;
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderId] = useState(() => generateOrderId());
@@ -228,7 +229,7 @@ export default function CheckoutPage() {
   const afterDiscount = Math.max(0, total - discount);
   const selectedHomeCarrier = HOME_CARRIERS.find((c) => c.id === selectedHomeCarrierId) ?? HOME_CARRIERS.find((c) => c.available) ?? HOME_CARRIERS[0];
   const homeDeliveryCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : selectedHomeCarrier.price;
-  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : homeDeliveryCost;
+  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : deliveryType === "pickup" ? shippingCostPickup : homeDeliveryCost;
   const finalTotal = afterDiscount + shippingCost;
 
   // Réinitialiser le point sélectionné si on change de transporteur
@@ -300,6 +301,7 @@ export default function CheckoutPage() {
     const postalRegex = /^\d{5}$/;
     if (deliveryType === "home" && !postalRegex.test(form.postalCode)) { setError("Le code postal doit contenir exactement 5 chiffres."); return; }
     if (deliveryType === "relay" && !selectedRelay) { setError("Veuillez sélectionner un point relais."); return; }
+    if (deliveryType === "pickup" && !form.fullName.trim()) { setError("Veuillez entrer votre nom complet."); return; }
 
     setLoading(true); setError("");
     try {
@@ -311,6 +313,8 @@ export default function CheckoutPage() {
         relayCity: selectedRelay.city,
         relayPostal: selectedRelay.postalCode,
         carrier: selectedCarrier.name,
+      } : deliveryType === "pickup" ? {
+        carrier: "En main propre",
       } : {
         address: form.address,
         city: form.city,
@@ -352,6 +356,16 @@ export default function CheckoutPage() {
           country: "France",
           relayPoint: selectedRelay,
           carrier: selectedCarrier.name,
+        }
+      : deliveryType === "pickup"
+      ? {
+          type: "home" as const,
+          fullName: form.fullName,
+          address: "En main propre",
+          city: "",
+          postalCode: "",
+          country: "France",
+          carrier: "En main propre",
         }
       : {
           type: "home" as const,
@@ -462,8 +476,40 @@ export default function CheckoutPage() {
                 </div>
                 {deliveryType === "relay" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setDeliveryType("pickup")}
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all ${
+                  deliveryType === "pickup" ? "border-brown bg-sand" : "border-border bg-cream hover:border-brown-mid"
+                }`}
+              >
+                <MapPin size={18} className={deliveryType === "pickup" ? "text-brown mt-0.5" : "text-brown-light mt-0.5"} />
+                <div>
+                  <p className={`font-medium text-sm ${deliveryType === "pickup" ? "text-brown" : "text-brown-mid"}`}>En main propre</p>
+                  <p className="text-xs text-brown-light mt-0.5">Gratuit · Sur rendez-vous</p>
+                </div>
+                {deliveryType === "pickup" && <Check size={16} className="text-brown ml-auto flex-shrink-0 mt-0.5" />}
+              </button>
             </div>
           </section>
+
+          {/* ─── Section en main propre ─── */}
+          {deliveryType === "pickup" && (
+            <section className="space-y-6">
+              <div>
+                <h2 className="font-serif font-semibold text-brown text-lg mb-4">Vos coordonnées</h2>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                </div>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
+                <p className="font-medium mb-1">Remise en main propre</p>
+                <p className="text-xs">Nous vous contacterons par email pour convenir d&apos;un rendez-vous. Livraison gratuite.</p>
+              </div>
+            </section>
+          )}
 
           {/* ─── Section domicile ─── */}
           {deliveryType === "home" && (

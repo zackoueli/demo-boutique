@@ -16,10 +16,10 @@ export default function Footer() {
         <div>
           <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Catalogue</p>
           <ul className="space-y-2 text-sm text-brown-light">
-            <li><Link href="/catalogue?category=rings" className="hover:text-terracotta transition-colors">Bagues</Link></li>
-            <li><Link href="/catalogue?category=necklaces" className="hover:text-terracotta transition-colors">Colliers</Link></li>
-            <li><Link href="/catalogue?category=bracelets" className="hover:text-terracotta transition-colors">Bracelets</Link></li>
-            <li><Link href="/catalogue?category=earrings" className="hover:text-terracotta transition-colors">Boucles d&apos;oreilles</Link></li>
+            <li><Link href="/catalogue?category=bijoux-memoriels" className="hover:text-terracotta transition-colors">Bijoux mémoriels</Link></li>
+            <li><Link href="/catalogue?category=bijoux-fantaisie" className="hover:text-terracotta transition-colors">Bijoux fantaisie</Link></li>
+            <li><Link href="/catalogue?category=objets-deco-et-porte-clefs" className="hover:text-terracotta transition-colors">Objets déco et Porte-clefs</Link></li>
+            <li><Link href="/catalogue?category=medailles-animaux" className="hover:text-terracotta transition-colors">Médailles animaux</Link></li>
           </ul>
         </div>
         <div>
