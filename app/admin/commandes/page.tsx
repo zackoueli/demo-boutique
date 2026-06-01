@@ -378,9 +378,9 @@ export default function AdminCommandesPage() {
                             <span>Date</span>
                             <span className="font-medium">{formatDate(order.createdAt)}</span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex flex-col gap-0.5">
                             <span>Email</span>
-                            <span className="font-medium truncate max-w-32">{order.userEmail}</span>
+                            <span className="font-medium break-all text-terracotta">{order.userEmail}</span>
                           </div>
                           <div className="flex justify-between items-center pt-1">
                             <span>Statut</span>
