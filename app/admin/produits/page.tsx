@@ -50,8 +50,12 @@ export default function AdminProduitsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingExtra, setIsDraggingExtra] = useState(false);
+  const [extraUploadProgress, setExtraUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const extraFileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+  const dragCounterExtra = useRef(0);
 
   async function load() {
     try {
@@ -145,6 +149,26 @@ export default function AdminProduitsPage() {
     }
   }
 
+  async function handleExtraFilesDrop(files: FileList) {
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    setUploadError(null);
+    for (let i = 0; i < imageFiles.length; i++) {
+      setExtraUploadProgress(Math.round((i / imageFiles.length) * 100));
+      try {
+        const url = await uploadImage(imageFiles[i]);
+        setForm((f) => ({
+          ...f,
+          images: f.images ? f.images + "\n" + url : url,
+        }));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        setUploadError(`Échec upload image ${i + 1} : ${msg || "erreur inconnue"}`);
+      }
+    }
+    setExtraUploadProgress(null);
+  }
+
   function onDragEnter(e: React.DragEvent) {
     e.preventDefault();
     dragCounter.current++;
@@ -181,9 +205,12 @@ export default function AdminProduitsPage() {
     setCustomFields([]);
     setShowCustomSection(false);
     setUploadProgress(null);
+    setExtraUploadProgress(null);
     setUploadError(null);
     dragCounter.current = 0;
+    dragCounterExtra.current = 0;
     setIsDragging(false);
+    setIsDraggingExtra(false);
     setShowModal(true);
   }
 
@@ -199,9 +226,12 @@ export default function AdminProduitsPage() {
     setCustomFields(p.customizationFields ?? []);
     setShowCustomSection((p.customizationFields ?? []).length > 0);
     setUploadProgress(null);
+    setExtraUploadProgress(null);
     setUploadError(null);
     dragCounter.current = 0;
+    dragCounterExtra.current = 0;
     setIsDragging(false);
+    setIsDraggingExtra(false);
     setShowModal(true);
   }
 
@@ -483,16 +513,74 @@ export default function AdminProduitsPage() {
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{uploadError}</p>
               )}
 
-              <FormField label="URLs images supplémentaires" required={false}>
-                <textarea
-                  value={form.images}
-                  onChange={(e) => setForm((f) => ({ ...f, images: e.target.value }))}
-                  rows={3}
-                  placeholder={"https://url-image-2.jpg\nhttps://url-image-3.jpg"}
-                  className={inputCls + " resize-none font-mono text-xs"}
-                />
-                <p className="text-xs text-brown-light mt-1">Une URL par ligne. S&apos;affichent dans le carousel de la fiche produit.</p>
-              </FormField>
+              {/* Images supplémentaires — drag & drop */}
+              <div>
+                <label className="block text-sm font-medium text-brown-mid mb-1.5">Photos supplémentaires</label>
+
+                {/* Zone de dépôt */}
+                <div
+                  onDragEnter={(e) => { e.preventDefault(); dragCounterExtra.current++; if (dragCounterExtra.current === 1) setIsDraggingExtra(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); dragCounterExtra.current--; if (dragCounterExtra.current === 0) setIsDraggingExtra(false); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); dragCounterExtra.current = 0; setIsDraggingExtra(false); handleExtraFilesDrop(e.dataTransfer.files); }}
+                  onClick={() => extraFileInputRef.current?.click()}
+                  className={`relative h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                    isDraggingExtra
+                      ? "border-terracotta bg-terracotta/5"
+                      : "border-border bg-sand hover:border-brown-light"
+                  }`}
+                >
+                  <input
+                    ref={extraFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files?.length) handleExtraFilesDrop(e.target.files); e.target.value = ""; }}
+                  />
+                  {extraUploadProgress !== null ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 size={20} className="text-terracotta animate-spin" />
+                      <div className="w-28 h-1 bg-border rounded-full overflow-hidden">
+                        <div className="h-full bg-terracotta rounded-full transition-all" style={{ width: `${extraUploadProgress}%` }} />
+                      </div>
+                      <span className="text-xs text-brown-light">{extraUploadProgress}%</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload size={18} className={isDraggingExtra ? "text-terracotta" : "text-brown-light"} />
+                      <span className={`text-xs font-medium ${isDraggingExtra ? "text-terracotta" : "text-brown-mid"}`}>
+                        {isDraggingExtra ? "Déposer les photos" : "Glissez des photos ou cliquez"}
+                      </span>
+                      <span className="text-xs text-brown-light">Plusieurs fichiers acceptés</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Aperçu des images supplémentaires déjà ajoutées */}
+                {form.images.trim() && (() => {
+                  const urls = form.images.split("\n").map((s) => s.trim()).filter(Boolean);
+                  return urls.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {urls.map((url, i) => (
+                        <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden bg-sand border border-border group">
+                          <Image src={url} alt={`photo ${i + 2}`} fill sizes="64px" className="object-cover" onError={(ev) => (ev.currentTarget.style.display = "none")} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newUrls = urls.filter((_, j) => j !== i);
+                              setForm((f) => ({ ...f, images: newUrls.join("\n") }));
+                            }}
+                            className="absolute inset-0 bg-brown/0 group-hover:bg-brown/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                          >
+                            <X size={14} className="text-cream" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
 
               <FormField label="Nom" required>
                 <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required className={inputCls} />
