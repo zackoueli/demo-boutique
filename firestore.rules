@@ -43,8 +43,13 @@ service cloud.firestore {
     }
 
     // ── Utilisateurs : chaque utilisateur lit/écrit son propre doc, admin lit tout ──
+    // Le champ "role" ne peut jamais être modifié par l'utilisateur lui-même
     match /users/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isAdmin()
+        || (isOwner(userId) && !("role" in request.resource.data.diff(resource.data).affectedKeys()));
+      allow delete: if isAdmin();
     }
 
     // ── Conversations (messagerie) : création par auth, lecture/écriture par propriétaire ou admin ──

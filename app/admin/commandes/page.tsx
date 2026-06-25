@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { collection, getDocs, doc, updateDoc, query, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import type { Order } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Search, RefreshCw, Home, Store } from "lucide-react";
@@ -39,6 +40,7 @@ type OrderWithDocId = Order & { docId: string };
 const PAGE_SIZE = 50;
 
 export default function AdminCommandesPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithDocId[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -86,10 +88,11 @@ export default function AdminCommandesPage() {
 
     // Email de suivi au client
     const order = orders.find((o) => o.docId === docId);
-    if (order) {
-      fetch("/api/send-status", {
+    if (order && user) {
+      const idToken = await user.getIdToken();
+      fetch("/api/admin/send-status", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({
           orderId: order.id,
           userEmail: order.userEmail,

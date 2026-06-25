@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
-import { isValidEmail, checkRateLimit, getClientIp } from "@/lib/api-helpers";
+import { timingSafeEqual } from "crypto";
+import { isValidEmail } from "@/lib/api-helpers";
 
 const FROM = process.env.RESEND_FROM ?? "commandes@demo-boutique.fr";
 const OWNER_EMAIL = process.env.OWNER_EMAIL ?? "";
@@ -35,6 +36,26 @@ interface ConfirmationPayload {
   total: number;
 }
 
+function checkInternalSecret(req: NextRequest): boolean {
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) return false;
+  const provided = req.headers.get("x-internal-secret") ?? "";
+  try {
+    return timingSafeEqual(Buffer.from(secret), Buffer.from(provided));
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
@@ -44,13 +65,13 @@ function buildHtml(d: ConfirmationPayload): string {
     .map((item) => {
       const customLines = item.customizationLabels
         ? Object.entries(item.customizationLabels)
-            .map(([k, v]) => `<span style="font-size:11px;color:#8b6f5e;display:inline-block;background:#f5f0eb;border-radius:4px;padding:2px 6px;margin:2px 2px 0 0;">${k} : ${v}</span>`)
+            .map(([k, v]) => `<span style="font-size:11px;color:#8b6f5e;display:inline-block;background:#f5f0eb;border-radius:4px;padding:2px 6px;margin:2px 2px 0 0;">${escapeHtml(k)} : ${escapeHtml(v)}</span>`)
             .join("")
         : "";
       return `
         <tr>
           <td style="padding:10px 0;border-bottom:1px solid #e8e0d8;color:#3d2b1f;font-size:14px;">
-            ${item.name} × ${item.quantity}
+            ${escapeHtml(item.name)} × ${item.quantity}
             ${customLines ? `<div style="margin-top:4px;">${customLines}</div>` : ""}
           </td>
           <td style="padding:10px 0;border-bottom:1px solid #e8e0d8;text-align:right;font-weight:600;color:#3d2b1f;font-size:14px;white-space:nowrap;">
@@ -75,12 +96,12 @@ function buildHtml(d: ConfirmationPayload): string {
 
   const deliveryBlock =
     d.shipping.type === "relay"
-      ? `<p style="margin:0 0 4px;color:#3d2b1f;font-weight:600;">${d.shipping.relayPoint?.name ?? "Point relais"}</p>
-         <p style="margin:0;color:#8b6f5e;font-size:13px;">${d.shipping.address}, ${d.shipping.postalCode} ${d.shipping.city}</p>
-         ${d.shipping.carrier ? `<p style="margin:4px 0 0;font-size:12px;color:#8b6f5e;">Transporteur : ${d.shipping.carrier}</p>` : ""}
-         ${d.shipping.relayPoint?.hours ? `<p style="margin:4px 0 0;font-size:12px;color:#8b6f5e;font-style:italic;">${d.shipping.relayPoint.hours}</p>` : ""}`
-      : `<p style="margin:0;color:#3d2b1f;font-weight:600;">${d.shipping.fullName}</p>
-         <p style="margin:4px 0 0;color:#8b6f5e;font-size:13px;">${d.shipping.address}<br>${d.shipping.postalCode} ${d.shipping.city}<br>${d.shipping.country}</p>`;
+      ? `<p style="margin:0 0 4px;color:#3d2b1f;font-weight:600;">${escapeHtml(d.shipping.relayPoint?.name ?? "Point relais")}</p>
+         <p style="margin:0;color:#8b6f5e;font-size:13px;">${escapeHtml(d.shipping.address)}, ${escapeHtml(d.shipping.postalCode)} ${escapeHtml(d.shipping.city)}</p>
+         ${d.shipping.carrier ? `<p style="margin:4px 0 0;font-size:12px;color:#8b6f5e;">Transporteur : ${escapeHtml(d.shipping.carrier)}</p>` : ""}
+         ${d.shipping.relayPoint?.hours ? `<p style="margin:4px 0 0;font-size:12px;color:#8b6f5e;font-style:italic;">${escapeHtml(d.shipping.relayPoint.hours)}</p>` : ""}`
+      : `<p style="margin:0;color:#3d2b1f;font-weight:600;">${escapeHtml(d.shipping.fullName)}</p>
+         <p style="margin:4px 0 0;color:#8b6f5e;font-size:13px;">${escapeHtml(d.shipping.address)}<br>${escapeHtml(d.shipping.postalCode)} ${escapeHtml(d.shipping.city)}<br>${escapeHtml(d.shipping.country)}</p>`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -93,13 +114,13 @@ function buildHtml(d: ConfirmationPayload): string {
         <!-- Header -->
         <tr><td style="background:#3d2b1f;padding:32px 40px;text-align:center;">
           <h1 style="margin:0;color:#faf8f5;font-size:22px;font-weight:600;letter-spacing:0.05em;">Commande confirmée</h1>
-          <p style="margin:8px 0 0;color:#c8b49a;font-size:13px;">Référence : <strong>${d.orderId}</strong></p>
+          <p style="margin:8px 0 0;color:#c8b49a;font-size:13px;">Référence : <strong>${escapeHtml(d.orderId)}</strong></p>
         </td></tr>
 
         <!-- Intro -->
         <tr><td style="padding:32px 40px 24px;">
           <p style="margin:0;color:#3d2b1f;font-size:15px;line-height:1.6;">
-            Bonjour <strong>${d.shipping.fullName}</strong>,<br><br>
+            Bonjour <strong>${escapeHtml(d.shipping.fullName)}</strong>,<br><br>
             Merci pour votre commande ! Nous l'avons bien reçue et elle est en cours de traitement.
           </p>
         </td></tr>
@@ -147,17 +168,17 @@ function buildHtml(d: ConfirmationPayload): string {
 function buildOwnerHtml(d: ConfirmationPayload): string {
   const itemsLines = d.items.map((item) => {
     const custom = item.customizationLabels
-      ? " (" + Object.entries(item.customizationLabels).map(([k, v]) => `${k}: ${v}`).join(", ") + ")"
+      ? " (" + Object.entries(item.customizationLabels).map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v)}`).join(", ") + ")"
       : "";
     return `<tr>
-      <td style="padding:8px 0;border-bottom:1px solid #e8e0d8;color:#3d2b1f;font-size:14px;">${item.name}${custom} × ${item.quantity}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #e8e0d8;color:#3d2b1f;font-size:14px;">${escapeHtml(item.name)}${custom} × ${item.quantity}</td>
       <td style="padding:8px 0;border-bottom:1px solid #e8e0d8;text-align:right;font-weight:600;color:#3d2b1f;font-size:14px;">${formatPrice(item.price * item.quantity)}</td>
     </tr>`;
   }).join("");
 
   const delivery = d.shipping.type === "relay"
-    ? `Point relais : ${d.shipping.relayPoint?.name ?? ""} — ${d.shipping.address}, ${d.shipping.postalCode} ${d.shipping.city} (${d.shipping.carrier ?? ""})`
-    : `Domicile : ${d.shipping.fullName}, ${d.shipping.address}, ${d.shipping.postalCode} ${d.shipping.city}`;
+    ? `Point relais : ${escapeHtml(d.shipping.relayPoint?.name ?? "")} — ${escapeHtml(d.shipping.address)}, ${escapeHtml(d.shipping.postalCode)} ${escapeHtml(d.shipping.city)} (${escapeHtml(d.shipping.carrier ?? "")})`
+    : `Domicile : ${escapeHtml(d.shipping.fullName)}, ${escapeHtml(d.shipping.address)}, ${escapeHtml(d.shipping.postalCode)} ${escapeHtml(d.shipping.city)}`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -168,10 +189,10 @@ function buildOwnerHtml(d: ConfirmationPayload): string {
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#faf8f5;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(61,43,31,0.08);">
         <tr><td style="background:#c0583a;padding:28px 40px;text-align:center;">
           <h1 style="margin:0;color:#fff;font-size:20px;font-weight:600;">🛍️ Nouvelle commande reçue</h1>
-          <p style="margin:8px 0 0;color:#fde8df;font-size:13px;">Réf. <strong>${d.orderId}</strong></p>
+          <p style="margin:8px 0 0;color:#fde8df;font-size:13px;">Réf. <strong>${escapeHtml(d.orderId)}</strong></p>
         </td></tr>
         <tr><td style="padding:28px 40px;">
-          <p style="margin:0 0 8px;color:#3d2b1f;font-size:14px;"><strong>Client :</strong> ${d.shipping.fullName} — ${d.userEmail}</p>
+          <p style="margin:0 0 8px;color:#3d2b1f;font-size:14px;"><strong>Client :</strong> ${escapeHtml(d.shipping.fullName)} — ${escapeHtml(d.userEmail)}</p>
           <p style="margin:0 0 20px;color:#3d2b1f;font-size:14px;"><strong>Livraison :</strong> ${delivery}</p>
           <table width="100%" cellpadding="0" cellspacing="0">
             ${itemsLines}
@@ -191,10 +212,8 @@ function buildOwnerHtml(d: ConfirmationPayload): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = getClientIp(req);
-    const { allowed } = checkRateLimit(ip);
-    if (!allowed) {
-      return NextResponse.json({ ok: false, error: "Trop de requêtes" }, { status: 429 });
+    if (!checkInternalSecret(req)) {
+      return NextResponse.json({ ok: false, error: "Non autorisé" }, { status: 401 });
     }
 
     const body: ConfirmationPayload = await req.json();

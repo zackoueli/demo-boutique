@@ -1,6 +1,18 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
-import { isValidEmail, checkRateLimit, getClientIp } from "@/lib/api-helpers";
+import { timingSafeEqual } from "crypto";
+import { isValidEmail } from "@/lib/api-helpers";
+
+function checkInternalSecret(req: NextRequest): boolean {
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) return false;
+  const provided = req.headers.get("x-internal-secret") ?? "";
+  try {
+    return timingSafeEqual(Buffer.from(secret), Buffer.from(provided));
+  } catch {
+    return false;
+  }
+}
 
 const FROM = process.env.RESEND_FROM ?? "commandes@demo-boutique.fr";
 
@@ -34,6 +46,15 @@ interface StatusPayload {
   total: number;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function formatPrice(cents: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
@@ -54,7 +75,7 @@ function buildHtml(d: StatusPayload): string {
 
         <tr><td style="background:#3d2b1f;padding:32px 40px;text-align:center;">
           <h1 style="margin:0;color:#faf8f5;font-size:20px;font-weight:600;">Mise à jour de votre commande</h1>
-          <p style="margin:8px 0 0;color:#c8b49a;font-size:13px;">Référence : <strong>${d.orderId}</strong></p>
+          <p style="margin:8px 0 0;color:#c8b49a;font-size:13px;">Référence : <strong>${escapeHtml(d.orderId)}</strong></p>
         </td></tr>
 
         <tr><td style="padding:40px 40px 32px;text-align:center;">
@@ -63,7 +84,7 @@ function buildHtml(d: StatusPayload): string {
             <span style="font-size:14px;font-weight:600;color:${isCancelled ? "#dc2626" : "#c0583a"};">${label}</span>
           </div>
           <p style="margin:0;color:#3d2b1f;font-size:15px;line-height:1.7;max-width:420px;margin:0 auto;">
-            Bonjour <strong>${d.fullName}</strong>,<br><br>
+            Bonjour <strong>${escapeHtml(d.fullName)}</strong>,<br><br>
             ${message}
           </p>
         </td></tr>
@@ -98,10 +119,8 @@ function buildHtml(d: StatusPayload): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = getClientIp(req);
-    const { allowed } = checkRateLimit(ip);
-    if (!allowed) {
-      return NextResponse.json({ ok: false, error: "Trop de requêtes" }, { status: 429 });
+    if (!checkInternalSecret(req)) {
+      return NextResponse.json({ ok: false, error: "Non autorisé" }, { status: 401 });
     }
 
     const body: StatusPayload = await req.json();

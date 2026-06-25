@@ -207,6 +207,7 @@ export default function CheckoutPage() {
   const shippingCostPickup = 0;
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [verifiedTotal, setVerifiedTotal] = useState<number | null>(null);
   const [orderId] = useState(() => generateOrderId());
 
   const [form, setForm] = useState({
@@ -305,38 +306,38 @@ export default function CheckoutPage() {
 
     setLoading(true); setError("");
     try {
-      // Stripe exige un minimum de 50 centimes
-      const chargeAmount = Math.max(finalTotal, 50);
       const relayData = deliveryType === "relay" && selectedRelay ? {
         relayName: selectedRelay.name,
         relayAddress: selectedRelay.address,
         relayCity: selectedRelay.city,
         relayPostal: selectedRelay.postalCode,
-        carrier: selectedCarrier.name,
-      } : deliveryType === "pickup" ? {
-        carrier: "En main propre",
-      } : {
+      } : deliveryType === "pickup" ? {} : {
         address: form.address,
         city: form.city,
         postal: form.postalCode,
-        carrier: selectedHomeCarrier.name,
       };
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: chargeAmount,
           orderId,
           email: form.email,
           fullName: form.fullName,
           deliveryType,
+          carrierId: deliveryType === "relay" ? selectedCarrierId : deliveryType === "home" ? selectedHomeCarrierId : undefined,
+          promoCode: promoResult?.code ?? undefined,
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            customization: i.customization ?? {},
+          })),
           ...relayData,
-          items: items.map((i) => `${i.name} x${i.quantity}`).join(", "),
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.clientSecret) throw new Error(data.error ?? "Erreur Stripe");
       setClientSecret(data.clientSecret);
+      setVerifiedTotal(data.verifiedAmount ?? finalTotal);
     } catch (err) {
       console.error("[checkout] Erreur PaymentIntent:", err);
       setError("Impossible d'initialiser le paiement. Veuillez réessayer.");
@@ -393,7 +394,7 @@ export default function CheckoutPage() {
       status: "pending", items: sanitizedItems, shipping: shippingData,
       payment: { method: "card", stripePaymentIntentId: paymentIntentId },
       subtotal: total, discount, promoCode: promoResult?.code ?? null,
-      shippingCost, total: finalTotal, createdAt: serverTimestamp(),
+      shippingCost, total: verifiedTotal ?? finalTotal, createdAt: serverTimestamp(),
     });
 
     if (promoResult) {
@@ -409,12 +410,6 @@ export default function CheckoutPage() {
         await updateDoc(productRef, { stock: Math.max(0, (snap.data().stock ?? 0) - item.quantity) }).catch(() => {});
       }
     }));
-
-    fetch("/api/send-confirmation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, userEmail: form.email, items: sanitizedItems, shipping: shippingData, subtotal: total, shippingCost, discount, promoCode: promoResult?.code ?? null, total: finalTotal }),
-    }).catch(() => {});
 
     clearCart();
     router.push(`/confirmation/${orderId}`);
@@ -737,7 +732,7 @@ export default function CheckoutPage() {
               <StripePaymentForm
                 onSuccess={confirmOrder}
                 onError={setError}
-                finalTotal={finalTotal}
+                finalTotal={verifiedTotal ?? finalTotal}
                 orderId={orderId}
               />
             </Elements>
