@@ -53,6 +53,14 @@ export interface RelayPoint {
   lng?: number;
 }
 
+export interface MondialRelayShipment {
+  status: "pending" | "created" | "failed";
+  expeditionNumber?: string;
+  labelUrl?: string;
+  error?: string;
+  createdAt?: Date;
+}
+
 export interface Order {
   id: string;
   userId: string | null;
@@ -66,7 +74,9 @@ export interface Order {
     city: string;
     postalCode: string;
     country: string;
+    carrier?: string;
     relayPoint?: RelayPoint;
+    mondialRelay?: MondialRelayShipment;
   };
   payment: {
     last4: string;

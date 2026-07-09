@@ -307,6 +307,7 @@ export default function CheckoutPage() {
     setLoading(true); setError("");
     try {
       const relayData = deliveryType === "relay" && selectedRelay ? {
+        relayId: selectedRelay.id,
         relayName: selectedRelay.name,
         relayAddress: selectedRelay.address,
         relayCity: selectedRelay.city,
@@ -325,6 +326,7 @@ export default function CheckoutPage() {
           fullName: form.fullName,
           deliveryType,
           carrierId: deliveryType === "relay" ? selectedCarrierId : deliveryType === "home" ? selectedHomeCarrierId : undefined,
+          weightGrams: items.reduce((sum, i) => sum + i.quantity, 0) * 200,
           promoCode: promoResult?.code ?? undefined,
           items: items.map((i) => ({
             productId: i.productId,

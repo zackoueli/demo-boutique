@@ -114,6 +114,45 @@ export default function AdminCommandesPage() {
     }
   }
 
+  const [retryingShipment, setRetryingShipment] = useState<string | null>(null);
+
+  async function retryMondialRelayShipment(order: OrderWithDocId) {
+    if (order.shipping?.type !== "relay" || !order.shipping.relayPoint) return;
+    setRetryingShipment(order.docId);
+    try {
+      const res = await fetch("/api/mondial-relay/create-shipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.docId,
+          weightGrams: 500,
+          relayPointId: order.shipping.relayPoint.id,
+          recipient: {
+            fullName: order.shipping.fullName,
+            address: order.shipping.address,
+            city: order.shipping.city,
+            postalCode: order.shipping.postalCode,
+            country: "FR",
+          },
+        }),
+      });
+      const data = await res.json();
+      const mondialRelay = res.ok
+        ? { status: "created" as const, expeditionNumber: data.expeditionNumber, labelUrl: data.labelUrl }
+        : { status: "failed" as const, error: data.error ?? "Erreur inconnue" };
+
+      await updateDoc(doc(db, "orders", order.docId), { "shipping.mondialRelay": mondialRelay });
+      setOrders((prev) => prev.map((o) => o.docId === order.docId
+        ? { ...o, shipping: { ...o.shipping, mondialRelay } }
+        : o));
+    } catch {
+      setStatusToast("Échec de la création de l'expédition Mondial Relay");
+      setTimeout(() => setStatusToast(null), 4000);
+    } finally {
+      setRetryingShipment(null);
+    }
+  }
+
   // Stats par statut
   const stats = useMemo(() => {
     const counts = {} as Record<Order["status"], number>;
@@ -366,6 +405,54 @@ export default function AdminCommandesPage() {
                           <p className="text-xs text-brown-light mt-2 italic">
                             {(order.shipping as { relayPoint?: { hours?: string } }).relayPoint!.hours}
                           </p>
+                        )}
+
+                        {/* Statut expédition Mondial Relay */}
+                        {order.shipping?.type === "relay" && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            {order.shipping.mondialRelay?.status === "created" ? (
+                              <div className="text-xs">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-medium">
+                                  Expédition créée
+                                </span>
+                                <p className="mt-1 font-mono text-brown-mid">{order.shipping.mondialRelay.expeditionNumber}</p>
+                                {order.shipping.mondialRelay.labelUrl && (
+                                  <a
+                                    href={order.shipping.mondialRelay.labelUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-terracotta underline"
+                                  >
+                                    Voir l&apos;étiquette
+                                  </a>
+                                )}
+                              </div>
+                            ) : order.shipping.mondialRelay?.status === "failed" ? (
+                              <div className="text-xs">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-700 font-medium">
+                                  Échec création MR
+                                </span>
+                                <p className="mt-1 text-brown-light">{order.shipping.mondialRelay.error}</p>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); retryMondialRelayShipment(order); }}
+                                  disabled={retryingShipment === order.docId}
+                                  className="mt-2 flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-brown-mid hover:bg-sand transition-colors disabled:opacity-50"
+                                >
+                                  {retryingShipment === order.docId ? <RefreshCw size={12} className="animate-spin" /> : null}
+                                  Réessayer
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); retryMondialRelayShipment(order); }}
+                                disabled={retryingShipment === order.docId}
+                                className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-brown-mid hover:bg-sand transition-colors disabled:opacity-50"
+                              >
+                                {retryingShipment === order.docId ? <RefreshCw size={12} className="animate-spin" /> : null}
+                                Créer l&apos;expédition Mondial Relay
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
 

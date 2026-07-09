@@ -46,10 +46,13 @@ export async function POST(req: NextRequest) {
       const existing = await db.collection("orders").where("id", "==", orderId).get();
 
       // Commande déjà sauvegardée par confirmOrder — rien à faire
-      if (!existing.empty) return NextResponse.json({ ok: true });
+      if (!existing.empty) {
+        await maybeCreateMondialRelayShipment(db, existing.docs[0].id, existing.docs[0].data(), meta);
+        return NextResponse.json({ ok: true });
+      }
 
       // Commande manquante — on la crée depuis les métadonnées Stripe
-      await db.collection("orders").add({
+      const newOrderRef = await db.collection("orders").add({
         id: orderId,
         userId: null,
         userEmail: meta.email ?? "",
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
           city: meta.relayCity ?? meta.city ?? "",
           postalCode: meta.relayPostal ?? meta.postal ?? "",
           country: "France",
-          ...(meta.relayName ? { relayPoint: { name: meta.relayName } } : {}),
+          ...(meta.relayName ? { relayPoint: { id: meta.relayId ?? "", name: meta.relayName } } : {}),
           carrier: meta.carrier ?? "",
         },
         payment: { method: "card", stripePaymentIntentId: pi.id },
@@ -74,6 +77,9 @@ export async function POST(req: NextRequest) {
       });
 
       console.log(`[webhook] Commande récupérée via webhook: ${orderId}`);
+
+      const newOrderSnap = await newOrderRef.get();
+      await maybeCreateMondialRelayShipment(db, newOrderRef.id, newOrderSnap.data(), meta);
 
       // Envoie email de confirmation si on a l'email
       if (meta.email) {
@@ -98,4 +104,80 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+interface OrderShippingData {
+  type?: string;
+  fullName?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  relayPoint?: { id?: string };
+  mondialRelay?: { status?: string };
+}
+
+async function maybeCreateMondialRelayShipment(
+  db: FirebaseFirestore.Firestore,
+  docId: string,
+  orderData: FirebaseFirestore.DocumentData | undefined,
+  meta: Record<string, string>
+) {
+  const shipping = orderData?.shipping as OrderShippingData | undefined;
+  if (!shipping || shipping.type !== "relay") return;
+
+  // Déjà traité (créé ou tenté) — on ne réessaie pas automatiquement.
+  if (shipping.mondialRelay?.status) return;
+
+  const relayId = shipping.relayPoint?.id || meta.relayId;
+  if (!relayId) {
+    console.error(`[webhook] Pas d'ID point relais pour la commande ${docId}, création MR impossible`);
+    return;
+  }
+
+  const weightGrams = Number(meta.weightGrams) || 500;
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/mondial-relay/create-shipment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: docId,
+        weightGrams,
+        relayPointId: relayId,
+        recipient: {
+          fullName: shipping.fullName ?? "",
+          address: shipping.address ?? "",
+          city: shipping.city ?? "",
+          postalCode: shipping.postalCode ?? "",
+          country: "FR",
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      await db.collection("orders").doc(docId).update({
+        "shipping.mondialRelay": { status: "failed", error: data.error ?? "Erreur inconnue" },
+      });
+      console.error(`[webhook] Échec création expédition Mondial Relay pour ${docId}:`, data.error);
+      return;
+    }
+
+    await db.collection("orders").doc(docId).update({
+      "shipping.mondialRelay": {
+        status: "created",
+        expeditionNumber: data.expeditionNumber,
+        labelUrl: data.labelUrl,
+      },
+    });
+    console.log(`[webhook] Expédition Mondial Relay créée pour ${docId}: ${data.expeditionNumber}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    await db.collection("orders").doc(docId).update({
+      "shipping.mondialRelay": { status: "failed", error: message },
+    }).catch(() => {});
+    console.error(`[webhook] Erreur appel création expédition Mondial Relay pour ${docId}:`, message);
+  }
 }
