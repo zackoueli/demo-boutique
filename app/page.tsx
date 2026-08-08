@@ -113,9 +113,9 @@ export default function HomePage() {
 
             <FadeIn delay={80}>
               <h1 className="font-serif font-semibold leading-[1.08]" style={{ fontSize: "clamp(3rem, 5.5vw, 5rem)", color: "#3d2b1f" }}>
-                Bienvenue<br />
-                dans mon<br />
-                <em className="not-italic" style={{ color: "#c0826a" }}>atelier.</em>
+                Atelier de création<br />
+                de bijoux<br />
+                <em className="not-italic" style={{ color: "#c0826a" }}>mémoriel.</em>
               </h1>
             </FadeIn>
 
