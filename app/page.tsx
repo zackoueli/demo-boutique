@@ -100,6 +100,9 @@ export default function HomePage() {
           background: "radial-gradient(ellipse at bottom left, rgba(61,43,31,0.06) 0%, transparent 65%)"
         }} />
 
+        {/* Inclusions en résine — motif signature : fragments suspendus comme dans les bijoux */}
+        <ResinInclusions />
+
         <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-0 md:pt-24 grid md:grid-cols-2 gap-0 items-end min-h-[calc(100vh-2rem)]">
 
           {/* Gauche — texte */}
@@ -191,7 +194,7 @@ export default function HomePage() {
 
           <div className={`grid gap-4 ${categories.length === 1 ? "grid-cols-1" : categories.length === 2 ? "grid-cols-2" : categories.length === 3 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
             {categories.map((cat, i) => (
-              <FadeIn key={cat.id} delay={i * 70}>
+              <FadeIn key={cat.id} delay={i * 70} className={i % 2 === 1 && categories.length > 2 ? "md:mt-8" : ""}>
                 <Link
                   href={`/catalogue/${cat.key}`}
                   className="group relative block overflow-hidden rounded-2xl"
@@ -208,7 +211,7 @@ export default function HomePage() {
                     />
                   ) : (
                     <div className="absolute inset-0" style={{
-                      background: `linear-gradient(135deg, hsl(${20 + i * 30}, 35%, ${78 - i * 5}%), hsl(${30 + i * 30}, 30%, ${68 - i * 5}%))`
+                      background: `linear-gradient(135deg, hsl(${18 + i * 6}, ${42 - i * 3}%, ${76 - i * 6}%), hsl(${12 + i * 4}, ${38 - i * 2}%, ${42 - i * 4}%))`
                     }} />
                   )}
 
@@ -246,6 +249,7 @@ export default function HomePage() {
             <div className="absolute right-0 top-0 w-64 h-64 pointer-events-none" style={{
               background: "radial-gradient(circle at top right, rgba(192,130,106,0.18) 0%, transparent 65%)"
             }} />
+            <ResinInclusions />
 
             {/* Icône */}
             <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "rgba(192,130,106,0.12)" }}>
@@ -689,6 +693,82 @@ function ReviewsSection({ reviews, products }: { reviews: Review[]; products: Re
         })}
       </div>
     </section>
+  );
+}
+
+/* ── Inclusions en résine — motif signature du hero ──
+   De petits fragments suspendus (goutte, brin, pétale) qui évoquent
+   ce que contiennent réellement les bijoux : lait, cheveux, fleurs séchées. */
+function ResinInclusions() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <svg
+        className="absolute inset-0 w-full h-full"
+        style={{ animation: "resin-drift 22s ease-in-out infinite" }}
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        {/* Goutte pleine — lait maternel */}
+        <circle cx="120" cy="180" r="11" fill="#c0826a" opacity="0.5" />
+        <circle cx="165" cy="215" r="5" fill="#c0826a" opacity="0.35" />
+        <circle cx="95" cy="230" r="3" fill="#8a6858" opacity="0.3" />
+        <circle cx="60" cy="120" r="6" fill="#c0826a" opacity="0.3" />
+
+        {/* Brin — mèche de cheveux */}
+        <path d="M 260 80 Q 288 130 268 175 Q 248 218 280 255" stroke="#8a6858" strokeWidth="2.6" fill="none" opacity="0.42" strokeLinecap="round" />
+        <path d="M 320 60 Q 340 100 326 135" stroke="#a07860" strokeWidth="2" fill="none" opacity="0.3" strokeLinecap="round" />
+        <path d="M 420 200 Q 445 240 428 275" stroke="#8a6858" strokeWidth="1.8" fill="none" opacity="0.24" strokeLinecap="round" />
+
+        {/* Pétale — fleur séchée */}
+        <ellipse cx="1180" cy="140" rx="18" ry="8" fill="#c0826a" opacity="0.4" transform="rotate(-25 1180 140)" />
+        <ellipse cx="1210" cy="165" rx="14" ry="6" fill="#a07860" opacity="0.32" transform="rotate(20 1210 165)" />
+        <ellipse cx="1155" cy="175" rx="10" ry="4.5" fill="#c0826a" opacity="0.28" transform="rotate(60 1155 175)" />
+        <ellipse cx="1250" cy="90" rx="12" ry="5" fill="#8a6858" opacity="0.26" transform="rotate(-40 1250 90)" />
+
+        {/* Bulles */}
+        <circle cx="1340" cy="260" r="7" fill="none" stroke="#c0826a" strokeWidth="1.6" opacity="0.5" />
+        <circle cx="70" cy="520" r="9" fill="none" stroke="#c0826a" strokeWidth="1.6" opacity="0.4" />
+        <circle cx="1380" cy="400" r="4" fill="#c0826a" opacity="0.3" />
+        <circle cx="40" cy="440" r="4.5" fill="#8a6858" opacity="0.32" />
+        <circle cx="1420" cy="60" r="6" fill="none" stroke="#c0826a" strokeWidth="1.4" opacity="0.36" />
+        <circle cx="1300" cy="500" r="5" fill="#a07860" opacity="0.28" />
+        <circle cx="1400" cy="620" r="8" fill="none" stroke="#8a6858" strokeWidth="1.4" opacity="0.32" />
+        <circle cx="10" cy="650" r="5" fill="#c0826a" opacity="0.26" />
+
+        {/* Essaim centre-bas */}
+        <circle cx="680" cy="700" r="7" fill="#c0826a" opacity="0.32" />
+        <circle cx="715" cy="722" r="4" fill="#8a6858" opacity="0.36" />
+        <path d="M 750 675 Q 766 700 752 725" stroke="#a07860" strokeWidth="2.2" fill="none" opacity="0.32" strokeLinecap="round" />
+        <ellipse cx="640" cy="730" rx="10" ry="4.5" fill="#c0826a" opacity="0.24" transform="rotate(-15 640 730)" />
+        <circle cx="820" cy="760" r="5" fill="#8a6858" opacity="0.26" />
+
+        {/* Brin bas-gauche */}
+        <path d="M 55 760 Q 82 795 62 830" stroke="#8a6858" strokeWidth="2.2" fill="none" opacity="0.36" strokeLinecap="round" />
+        <ellipse cx="200" cy="810" rx="13" ry="5.5" fill="#c0826a" opacity="0.3" transform="rotate(15 200 810)" />
+        <circle cx="150" cy="850" r="5" fill="#a07860" opacity="0.26" />
+        <circle cx="280" cy="870" r="4" fill="#c0826a" opacity="0.22" />
+
+        {/* Bas-droite, sous la carte */}
+        <ellipse cx="1250" cy="800" rx="11" ry="5" fill="#c0826a" opacity="0.26" transform="rotate(35 1250 800)" />
+        <circle cx="1350" cy="850" r="6" fill="none" stroke="#8a6858" strokeWidth="1.4" opacity="0.3" />
+        <path d="M 1180 830 Q 1200 860 1185 890" stroke="#a07860" strokeWidth="1.8" fill="none" opacity="0.24" strokeLinecap="round" />
+
+        {/* Fragments centre-haut, discrets près du titre */}
+        <circle cx="480" cy="60" r="3.5" fill="#c0826a" opacity="0.22" />
+        <ellipse cx="900" cy="80" rx="8" ry="3.5" fill="#a07860" opacity="0.24" transform="rotate(-10 900 80)" />
+        <circle cx="600" cy="850" r="4" fill="#c0826a" opacity="0.2" />
+        <ellipse cx="1000" cy="850" rx="7" ry="3" fill="#8a6858" opacity="0.2" transform="rotate(15 1000 850)" />
+      </svg>
+      <style>{`
+        @keyframes resin-drift {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          svg { animation: none !important; }
+        }
+      `}</style>
+    </div>
   );
 }
 
