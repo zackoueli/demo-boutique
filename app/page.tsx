@@ -389,7 +389,7 @@ function MemorialCard({ categories }: { categories: Category[] }) {
   const memorialCat = categories.find(
     (c) => c.key?.toLowerCase().includes("memoriel") || c.key?.toLowerCase().includes("memorial") || c.label?.toLowerCase().includes("mémoriel")
   );
-  const href = memorialCat ? `/catalogue/${memorialCat.key}` : "/catalogue";
+  const href = memorialCat ? `/univers/${memorialCat.key}` : "/catalogue";
 
   return (
     <Link
@@ -462,7 +462,7 @@ function MemorialCard({ categories }: { categories: Category[] }) {
           className="flex items-center gap-2 text-sm font-medium transition-all duration-300 group-hover:gap-4"
           style={{ color: "white" }}
         >
-          Découvrir la collection <ArrowRight size={15} />
+          Découvrir mon savoir-faire <ArrowRight size={15} />
         </div>
       </div>
     </Link>

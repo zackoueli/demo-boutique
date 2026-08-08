@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function Footer() {
   return (
     <footer className="border-t border-border bg-sand mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="max-w-6xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-5 gap-10">
         <div className="md:col-span-1">
           <p className="font-serif text-lg font-semibold text-brown mb-3">Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</p>
           <p className="text-sm text-brown-light leading-relaxed max-w-56">
@@ -20,6 +20,15 @@ export default function Footer() {
             <li><Link href="/catalogue/bijoux-fantaisie" className="hover:text-terracotta transition-colors">Bijoux fantaisie</Link></li>
             <li><Link href="/catalogue/objets-deco-et-porte-clefs" className="hover:text-terracotta transition-colors">Objets déco et Porte-clefs</Link></li>
             <li><Link href="/catalogue/medailles-animaux" className="hover:text-terracotta transition-colors">Médailles animaux</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-brown uppercase tracking-widest mb-4">Mon savoir-faire</p>
+          <ul className="space-y-2 text-sm text-brown-light">
+            <li><Link href="/univers/bijoux-memoriels" className="hover:text-terracotta transition-colors">Bijoux mémoriels</Link></li>
+            <li><Link href="/univers/bijoux-fantaisie" className="hover:text-terracotta transition-colors">Bijoux fantaisie</Link></li>
+            <li><Link href="/univers/objets-deco-et-porte-clefs" className="hover:text-terracotta transition-colors">Objets déco et Porte-clefs</Link></li>
+            <li><Link href="/univers/medailles-animaux" className="hover:text-terracotta transition-colors">Médailles animaux</Link></li>
           </ul>
         </div>
         <div>
