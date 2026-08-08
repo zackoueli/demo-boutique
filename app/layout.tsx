@@ -17,17 +17,17 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.histoire-eternelle-l-atelier.fr"),
   title: {
-    default: "Histoire Eternelle - L'Atelier d'Anaïs — Bijoux artisanaux",
+    default: "Histoire Eternelle - L'Atelier d'Anaïs — Atelier de création de bijoux mémoriel",
     template: "%s — Histoire Eternelle - L'Atelier d'Anaïs",
   },
-  description: "Histoire Eternelle - L'Atelier d'Anaïs — Bijoux artisanaux façonnés à la main. Bagues, colliers, bracelets et boucles d'oreilles en matériaux nobles. Pièces uniques pour célébrer chaque moment.",
-  keywords: ["bijoux", "artisanal", "bague", "collier", "bracelet", "boucles d'oreilles", "fait main", "or", "argent"],
+  description: "Histoire Eternelle - L'Atelier d'Anaïs — Atelier de création de bijoux mémoriel façonnés à la main. Bagues, colliers, bracelets et boucles d'oreilles en matériaux nobles. Pièces uniques pour célébrer chaque moment.",
+  keywords: ["bijoux mémoriel", "bijoux artisanal", "bague", "collier", "bracelet", "boucles d'oreilles", "fait main", "or", "argent"],
   icons: {
     icon: "/icon.svg",
     apple: "/logo.png",
   },
   openGraph: {
-    title: "Histoire Eternelle - L'Atelier d'Anaïs — Bijoux artisanaux",
+    title: "Histoire Eternelle - L'Atelier d'Anaïs — Atelier de création de bijoux mémoriel",
     description: "Pièces uniques façonnées à la main avec des matériaux nobles.",
     type: "website",
     locale: "fr_FR",

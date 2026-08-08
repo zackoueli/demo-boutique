@@ -36,10 +36,10 @@ function sortProducts(products: Product[], sort: SortKey): Product[] {
   }
 }
 
-function CatalogueContent() {
+export function CatalogueContent({ fixedCategory }: { fixedCategory?: string } = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const activeCategory = searchParams.get("category") ?? "";
+  const activeCategory = fixedCategory ?? searchParams.get("category") ?? "";
   const activeSubCategory = searchParams.get("sub") ?? "";
 
   const { categories, loading: catsLoading } = useCategories();
@@ -77,11 +77,11 @@ function CatalogueContent() {
   }, [allProducts, activeCategory, activeSubCategory, sort, priceRange]);
 
   function setCategory(cat: string) {
-    router.push(cat ? `/catalogue?category=${cat}` : "/catalogue");
+    router.push(cat ? `/catalogue/${cat}` : "/catalogue");
   }
 
   function setSubCategory(sub: string) {
-    router.push(sub ? `/catalogue?category=${activeCategory}&sub=${sub}` : `/catalogue?category=${activeCategory}`);
+    router.push(sub ? `/catalogue/${activeCategory}?sub=${sub}` : `/catalogue/${activeCategory}`);
   }
 
   const activeCatObj = categories.find((c) => c.key === activeCategory);

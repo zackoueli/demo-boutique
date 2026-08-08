@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Catalogue — Bijoux & Co",
-  description: "Découvrez notre collection de bijoux artisanaux : bagues, colliers, bracelets et boucles d'oreilles façonnés à la main.",
+  title: "Catalogue",
+  description: "Découvrez notre collection de bijoux mémoriels artisanaux : bagues, colliers, bracelets et boucles d'oreilles façonnés à la main.",
   openGraph: {
-    title: "Catalogue — Bijoux & Co",
-    description: "Bijoux artisanaux façonnés à la main. Bagues, colliers, bracelets, boucles d'oreilles.",
+    title: "Catalogue — Histoire Eternelle - L'Atelier d'Anaïs",
+    description: "Bijoux mémoriels artisanaux façonnés à la main. Bagues, colliers, bracelets, boucles d'oreilles.",
     type: "website",
   },
 };

@@ -193,7 +193,7 @@ export default function HomePage() {
             {categories.map((cat, i) => (
               <FadeIn key={cat.id} delay={i * 70}>
                 <Link
-                  href={`/catalogue?category=${cat.key}`}
+                  href={`/catalogue/${cat.key}`}
                   className="group relative block overflow-hidden rounded-2xl"
                   style={{ aspectRatio: categories.length <= 2 ? "2/3" : categories.length === 3 && i === 0 ? "2/3" : "3/4", minHeight: 320 }}
                 >
@@ -389,7 +389,7 @@ function MemorialCard({ categories }: { categories: Category[] }) {
   const memorialCat = categories.find(
     (c) => c.key?.toLowerCase().includes("memoriel") || c.key?.toLowerCase().includes("memorial") || c.label?.toLowerCase().includes("mémoriel")
   );
-  const href = memorialCat ? `/catalogue?category=${memorialCat.key}` : "/catalogue";
+  const href = memorialCat ? `/catalogue/${memorialCat.key}` : "/catalogue";
 
   return (
     <Link

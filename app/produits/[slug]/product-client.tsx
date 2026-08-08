@@ -435,7 +435,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
                 <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Dans la même catégorie</p>
                 <h2 className="font-serif text-2xl font-semibold text-brown">Vous aimerez aussi</h2>
               </div>
-              <Link href={`/catalogue?category=${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">Voir tout →</Link>
+              <Link href={`/catalogue/${product.category}`} className="text-sm text-brown-light hover:text-terracotta transition-colors">Voir tout →</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
               {similar.map((p) => <ProductCard key={p.id} product={p} />)}
