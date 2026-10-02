@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { CartProvider } from "@/lib/cart-context";
 import { ToastProvider } from "@/lib/toast-context";
 import { WishlistProvider } from "@/lib/wishlist-context";
+import { CategoriesProvider } from "@/lib/categories";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +12,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <CartProvider>
         <WishlistProvider>
           <ToastProvider>
-            {children}
+            <CategoriesProvider>
+              {children}
+            </CategoriesProvider>
           </ToastProvider>
         </WishlistProvider>
       </CartProvider>

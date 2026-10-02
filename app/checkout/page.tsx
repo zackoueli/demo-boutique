@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { formatPrice, generateOrderId } from "@/lib/utils";
+import { track } from "@/lib/analytics";
+import {
+  FREE_SHIPPING_THRESHOLD, HOME_CARRIERS, RELAY_CARRIERS as CARRIERS,
+  amountToFreeShipping, computeShippingCost, type DeliveryType,
+} from "@/lib/shipping";
 import type { RelayPoint } from "@/lib/types";
 import Link from "next/link";
 import { ArrowLeft, Lock, MapPin, Tag, X, Check, Package, Home, Store, Search, Clock } from "lucide-react";
@@ -18,45 +21,7 @@ const RelayMap = dynamic(() => import("@/app/ui/relay-map"), { ssr: false });
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-/* ─── Seuil livraison offerte ─── */
-const FREE_SHIPPING_THRESHOLD = 8000; // 80€ en centimes
-const HOME_DELIVERY_PRICE = 599;      // 5,99€
-
-/* ─── Transporteurs livraison à domicile ─── */
-const HOME_CARRIERS = [
-  {
-    id: "colissimo",
-    name: "Colissimo",
-    abbr: "COL",
-    bgColor: "#FFCD00",
-    textColor: "#003189",
-    desc: "2–3 jours ouvrés",
-    price: 599,
-    available: false,
-  },
-  {
-    id: "dpd-home",
-    name: "DPD",
-    abbr: "DPD",
-    bgColor: "#DC0032",
-    desc: "2–3 jours ouvrés",
-    price: 499,
-    available: false,
-  },
-];
-
-/* ─── Transporteurs disponibles (point relais) ─── */
-const CARRIERS = [
-  {
-    id: "mondial-relay",
-    name: "Mondial Relay",
-    abbr: "MR",
-    bgColor: "#E30613",
-    desc: "2–4 jours ouvrés",
-    price: 450,
-  },
-];
-
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ─── Types API Adresse ─── */
 interface BanFeature {
@@ -182,6 +147,15 @@ function CarrierBadge({ carrier }: { carrier: { abbr: string; bgColor: string; t
 
 /* ─── Page checkout ─── */
 export default function CheckoutPage() {
+  const { ready } = useCart();
+  const { loading: authLoading } = useAuth();
+
+  // Le formulaire se pré-remplit depuis le compte : on attend que panier et compte soient chargés
+  if (!ready || authLoading) return <div className="bg-cream min-h-screen" />;
+  return <CheckoutForm />;
+}
+
+function CheckoutForm() {
   const router = useRouter();
   const { items, total, clearCart } = useCart();
   const { user, profile } = useAuth();
@@ -193,9 +167,9 @@ export default function CheckoutPage() {
   const [promoLoading, setPromoLoading] = useState(false);
 
   // Livraison
-  const [deliveryType, setDeliveryType] = useState<"home" | "relay" | "pickup">("relay");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("relay");
   const [selectedCarrierId, setSelectedCarrierId] = useState<string>("mondial-relay");
-  const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("chronopost");
+  const [selectedHomeCarrierId, setSelectedHomeCarrierId] = useState<string>("colissimo");
   const [relaySearchCity, setRelaySearchCity] = useState("");
   const [relaySearchPostal, setRelaySearchPostal] = useState("");
   const [relayPoints, setRelayPoints] = useState<RelayPoint[]>([]);
@@ -204,17 +178,27 @@ export default function CheckoutPage() {
   const [selectedRelay, setSelectedRelay] = useState<RelayPoint | null>(null);
 
   const selectedCarrier = CARRIERS.find((c) => c.id === selectedCarrierId) ?? CARRIERS[0];
-  const shippingCostPickup = 0;
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [verifiedTotal, setVerifiedTotal] = useState<number | null>(null);
   const [orderId] = useState(() => generateOrderId());
+  // Accord pour recevoir un rappel par email si la commande n'est pas terminée
+  const [cartReminder, setCartReminder] = useState(false);
 
   const [form, setForm] = useState({
     fullName: profile?.displayName ?? "",
     email: user?.email ?? "",
     address: "", city: "", postalCode: "", country: "France",
   });
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    track("begin_checkout", {
+      value: total,
+      items: items.map((i) => ({ id: i.productId, name: i.name, price: i.price, quantity: i.quantity })),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pré-remplir la recherche relais depuis l'adresse domicile
   useEffect(() => {
@@ -228,10 +212,12 @@ export default function CheckoutPage() {
       : Math.min(total, promoResult.value)
     : 0;
   const afterDiscount = Math.max(0, total - discount);
-  const selectedHomeCarrier = HOME_CARRIERS.find((c) => c.id === selectedHomeCarrierId) ?? HOME_CARRIERS.find((c) => c.available) ?? HOME_CARRIERS[0];
-  const homeDeliveryCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : selectedHomeCarrier.price;
-  const shippingCost = deliveryType === "relay" ? selectedCarrier.price : deliveryType === "pickup" ? shippingCostPickup : homeDeliveryCost;
+  const activeCarrierId = deliveryType === "relay" ? selectedCarrierId : deliveryType === "home" ? selectedHomeCarrierId : undefined;
+  const shippingCost = computeShippingCost(deliveryType, activeCarrierId, afterDiscount);
+  const freeShippingReached = afterDiscount >= FREE_SHIPPING_THRESHOLD;
   const finalTotal = afterDiscount + shippingCost;
+  // Une fois le paiement initialisé, le montant est figé : les choix ne sont plus modifiables
+  const locked = clientSecret !== null;
 
   // Réinitialiser le point sélectionné si on change de transporteur
   useEffect(() => {
@@ -244,23 +230,35 @@ export default function CheckoutPage() {
     if (!promoCode.trim()) return;
     setPromoLoading(true); setPromoError(""); setPromoResult(null);
     try {
-      const snap = await getDocs(
-        query(collection(db, "promoCodes"),
-          where("code", "==", promoCode.toUpperCase().trim()),
-          where("active", "==", true))
-      );
-      if (snap.empty) { setPromoError("Code invalide ou expiré."); return; }
-      const data = snap.docs[0].data() as Omit<PromoResult, "id">;
-      if (data.minOrder > 0 && total < data.minOrder) {
-        setPromoError(`Commande minimum de ${(data.minOrder / 100).toFixed(0)} € requise.`);
-        return;
-      }
-      setPromoResult({ id: snap.docs[0].id, ...data });
+      const res = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode, subtotal: total }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPromoError(data.error ?? "Code invalide ou expiré."); return; }
+      setPromoResult(data);
     } catch {
       setPromoError("Erreur lors de la vérification.");
     } finally {
       setPromoLoading(false);
     }
+  }
+
+  /* Sauvegarde (ou supprime) le panier côté serveur pour le rappel par email */
+  function syncCartReminder(consent: boolean) {
+    const email = form.email.trim();
+    if (!EMAIL_REGEX.test(email)) return;
+    fetch("/api/cart/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        consent,
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, customization: i.customization ?? {} })),
+      }),
+      keepalive: true,
+    }).catch(() => {});
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -297,49 +295,48 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (items.length === 0) return;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailRegex.test(form.email)) { setError("L'adresse email saisie n'est pas valide."); return; }
+    if (!EMAIL_REGEX.test(form.email.trim())) { setError("L'adresse email saisie n'est pas valide."); return; }
     const postalRegex = /^\d{5}$/;
     if (deliveryType === "home" && !postalRegex.test(form.postalCode)) { setError("Le code postal doit contenir exactement 5 chiffres."); return; }
     if (deliveryType === "relay" && !selectedRelay) { setError("Veuillez sélectionner un point relais."); return; }
-    if (deliveryType === "pickup" && !form.fullName.trim()) { setError("Veuillez entrer votre nom complet."); return; }
+    if (!form.fullName.trim()) { setError("Veuillez entrer votre nom complet."); return; }
 
     setLoading(true); setError("");
     try {
-      const relayData = deliveryType === "relay" && selectedRelay ? {
-        relayId: selectedRelay.id,
-        relayName: selectedRelay.name,
-        relayAddress: selectedRelay.address,
-        relayCity: selectedRelay.city,
-        relayPostal: selectedRelay.postalCode,
-      } : deliveryType === "pickup" ? {} : {
-        address: form.address,
-        city: form.city,
-        postal: form.postalCode,
-      };
+      const deliveryData = deliveryType === "relay"
+        ? { relayPoint: selectedRelay }
+        : deliveryType === "home"
+        ? { address: form.address, city: form.city, postal: form.postalCode }
+        : {};
+      const idToken = user ? await user.getIdToken() : null;
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) },
         body: JSON.stringify({
           orderId,
-          email: form.email,
-          fullName: form.fullName,
+          email: form.email.trim(),
+          fullName: form.fullName.trim(),
           deliveryType,
-          carrierId: deliveryType === "relay" ? selectedCarrierId : deliveryType === "home" ? selectedHomeCarrierId : undefined,
-          weightGrams: items.reduce((sum, i) => sum + i.quantity, 0) * 200,
+          carrierId: activeCarrierId,
           promoCode: promoResult?.code ?? undefined,
           items: items.map((i) => ({
+            cartItemId: i.cartItemId,
             productId: i.productId,
             quantity: i.quantity,
             customization: i.customization ?? {},
           })),
-          ...relayData,
+          ...deliveryData,
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.clientSecret) throw new Error(data.error ?? "Erreur Stripe");
+      if (!res.ok || !data.clientSecret) {
+        // Les refus (stock, personnalisation manquante…) portent un message destiné au client
+        setError(res.status < 500 && data.error ? data.error : "Impossible d'initialiser le paiement. Veuillez réessayer.");
+        return;
+      }
       setClientSecret(data.clientSecret);
       setVerifiedTotal(data.verifiedAmount ?? finalTotal);
+      if (cartReminder) syncCartReminder(true);
     } catch (err) {
       console.error("[checkout] Erreur PaymentIntent:", err);
       setError("Impossible d'initialiser le paiement. Veuillez réessayer.");
@@ -348,74 +345,37 @@ export default function CheckoutPage() {
     }
   }
 
+  // La commande est enregistrée côté serveur à partir du paiement (page de confirmation,
+  // avec le webhook Stripe en filet de sécurité) : ici, on ne fait que passer la main.
   async function confirmOrder(paymentIntentId: string) {
-    const shippingData = deliveryType === "relay"
-      ? {
-          type: "relay" as const,
-          fullName: form.fullName,
-          address: selectedRelay!.address,
-          city: selectedRelay!.city,
-          postalCode: selectedRelay!.postalCode,
-          country: "France",
-          relayPoint: selectedRelay,
-          carrier: selectedCarrier.name,
-        }
-      : deliveryType === "pickup"
-      ? {
-          type: "home" as const,
-          fullName: form.fullName,
-          address: "En main propre",
-          city: "",
-          postalCode: "",
-          country: "France",
-          carrier: "En main propre",
-        }
-      : {
-          type: "home" as const,
-          fullName: form.fullName,
-          address: form.address,
-          city: form.city,
-          postalCode: form.postalCode,
-          country: form.country,
-          carrier: selectedHomeCarrier.name,
-        };
-
-    const sanitizedItems = items.map((item) => {
-      const clean: Record<string, unknown> = {
-        cartItemId: item.cartItemId, productId: item.productId, name: item.name,
-        price: item.price, basePrice: item.basePrice, imageUrl: item.imageUrl, quantity: item.quantity,
-      };
-      if (item.customization) clean.customization = item.customization;
-      if (item.customizationLabels) clean.customizationLabels = item.customizationLabels;
-      if (item.customizationExtra) clean.customizationExtra = item.customizationExtra;
-      return clean;
+    track("purchase", {
+      orderId,
+      value: verifiedTotal ?? finalTotal,
+      items: items.map((i) => ({ id: i.productId, name: i.name, price: i.price, quantity: i.quantity })),
     });
-
-    await addDoc(collection(db, "orders"), {
-      id: orderId, userId: user?.uid ?? null, userEmail: form.email,
-      status: "pending", items: sanitizedItems, shipping: shippingData,
-      payment: { method: "card", stripePaymentIntentId: paymentIntentId },
-      subtotal: total, discount, promoCode: promoResult?.code ?? null,
-      shippingCost, total: verifiedTotal ?? finalTotal, createdAt: serverTimestamp(),
-    });
-
-    if (promoResult) {
-      await updateDoc(doc(db, "promoCodes", promoResult.id), {
-        usageCount: ((promoResult as { usageCount?: number }).usageCount ?? 0) + 1,
-      }).catch(() => {});
-    }
-
-    await Promise.all(items.map(async (item) => {
-      const productRef = doc(db, "products", item.productId);
-      const snap = await getDoc(productRef);
-      if (snap.exists()) {
-        await updateDoc(productRef, { stock: Math.max(0, (snap.data().stock ?? 0) - item.quantity) }).catch(() => {});
-      }
-    }));
-
     clearCart();
-    router.push(`/confirmation/${orderId}`);
+    router.push(`/confirmation/${orderId}?pi=${paymentIntentId}`);
   }
+
+  function editDelivery() {
+    setClientSecret(null);
+    setVerifiedTotal(null);
+    setError("");
+  }
+
+  const reminderOption = (
+    <label className="sm:col-span-2 flex items-start gap-2.5 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={cartReminder}
+        onChange={(e) => { setCartReminder(e.target.checked); syncCartReminder(e.target.checked); }}
+        className="w-4 h-4 mt-0.5 rounded accent-terracotta flex-shrink-0"
+      />
+      <span className="text-xs text-brown-light leading-relaxed">
+        Me rappeler mon panier par email si je ne termine pas ma commande (3 messages au plus, désinscription en un clic).
+      </span>
+    </label>
+  );
 
   if (items.length === 0) {
     return (
@@ -440,7 +400,7 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-10 grid lg:grid-cols-3 gap-10">
-        <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-8">
+        <form onSubmit={handleSubmit} className={`lg:col-span-2 space-y-8 ${locked ? "opacity-60 pointer-events-none" : ""}`}>
 
           {/* ─── Mode de livraison ─── */}
           <section>
@@ -498,7 +458,8 @@ export default function CheckoutPage() {
                 <h2 className="font-serif font-semibold text-brown text-lg mb-4">Vos coordonnées</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} onBlur={() => { if (cartReminder) syncCartReminder(true); }} required />
+                  {reminderOption}
                 </div>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
@@ -555,7 +516,8 @@ export default function CheckoutPage() {
                 <h2 className="font-serif font-semibold text-brown text-lg mb-4">Adresse de livraison</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} onBlur={() => { if (cartReminder) syncCartReminder(true); }} required />
+                  {reminderOption}
                   <div className="sm:col-span-2">
                     <AddressAutocomplete value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} onSelect={handleAddressSelect} />
                   </div>
@@ -577,7 +539,8 @@ export default function CheckoutPage() {
                 <h2 className="font-serif font-semibold text-brown text-lg mb-4">Vos coordonnées</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field label="Nom complet" name="fullName" value={form.fullName} onChange={handleChange} required />
-                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+                  <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} onBlur={() => { if (cartReminder) syncCartReminder(true); }} required />
+                  {reminderOption}
                 </div>
               </div>
 
@@ -602,8 +565,8 @@ export default function CheckoutPage() {
                             {carrier.name}
                           </p>
                           <p className="text-xs text-brown-light mt-0.5">{carrier.desc}</p>
-                          <p className={`text-xs font-medium mt-0.5 ${carrier.price === 0 ? "text-green-700" : "text-terracotta"}`}>
-                            {carrier.price === 0 ? "Offert" : formatPrice(carrier.price)}
+                          <p className={`text-xs font-medium mt-0.5 ${freeShippingReached ? "text-green-700" : "text-terracotta"}`}>
+                            {freeShippingReached ? "Offert" : formatPrice(carrier.price)}
                           </p>
                         </div>
                         {selectedCarrierId === carrier.id && <Check size={13} className="text-brown" />}
@@ -642,6 +605,8 @@ export default function CheckoutPage() {
                     onChange={(e) => setRelaySearchPostal(e.target.value)}
                     placeholder="Code postal (ex: 75001)"
                     maxLength={5}
+                    inputMode="numeric"
+                    autoComplete="postal-code"
                     className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown transition"
                   />
                   <button
@@ -738,6 +703,13 @@ export default function CheckoutPage() {
                 orderId={orderId}
               />
             </Elements>
+            <button
+              type="button"
+              onClick={editDelivery}
+              className="mt-4 mx-auto block text-sm text-brown-light hover:text-terracotta underline underline-offset-2 transition-colors"
+            >
+              Modifier mes informations de livraison
+            </button>
           </div>
         )}
 
@@ -765,7 +737,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* Code promo */}
-          <div className="border-t border-border pt-4 space-y-2">
+          <div className={`border-t border-border pt-4 space-y-2 ${locked ? "opacity-60 pointer-events-none" : ""}`}>
             {promoResult ? (
               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2">
                 <div className="flex items-center gap-2 text-green-700 text-sm">
@@ -814,6 +786,11 @@ export default function CheckoutPage() {
                 ? <span className="text-green-700 font-medium">Offerte</span>
                 : <span>{formatPrice(shippingCost)}</span>}
             </div>
+            {shippingCost > 0 && (
+              <p className="text-xs text-brown-light">
+                Plus que {formatPrice(amountToFreeShipping(afterDiscount))} pour la livraison offerte.
+              </p>
+            )}
             <div className="flex justify-between font-semibold text-brown pt-1 border-t border-border">
               <span>Total</span>
               <span className="text-terracotta text-lg">{formatPrice(finalTotal)}</span>
@@ -859,6 +836,8 @@ function StripePaymentForm({ onSuccess, onError, finalTotal, orderId }: {
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
+        // Certains moyens de paiement (PayPal…) passent par une redirection : retour sur la confirmation
+        confirmParams: { return_url: `${window.location.origin}/confirmation/${orderId}` },
         redirect: "if_required",
       });
       if (error) {
@@ -904,9 +883,19 @@ function StripePaymentForm({ onSuccess, onError, finalTotal, orderId }: {
   );
 }
 
-function Field({ label, name, value, onChange, type = "text", placeholder, required }: {
+/* Saisie automatique du navigateur : moins de frappe, surtout sur mobile */
+const AUTOCOMPLETE: Record<string, string> = {
+  fullName: "name",
+  email: "email",
+  city: "address-level2",
+  postalCode: "postal-code",
+  country: "country-name",
+};
+
+function Field({ label, name, value, onChange, onBlur, type = "text", placeholder, required }: {
   label: string; name: string; value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
   type?: string; placeholder?: string; required?: boolean;
 }) {
   return (
@@ -914,7 +903,8 @@ function Field({ label, name, value, onChange, type = "text", placeholder, requi
       <label htmlFor={name} className="block text-sm font-medium text-brown-mid mb-1.5">
         {label}{required && <span className="text-terracotta ml-0.5">*</span>}
       </label>
-      <input id={name} name={name} type={type} value={value} onChange={onChange} placeholder={placeholder} required={required}
+      <input id={name} name={name} type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} required={required}
+        autoComplete={AUTOCOMPLETE[name]}
         className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition"
       />
     </div>

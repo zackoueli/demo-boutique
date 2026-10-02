@@ -16,6 +16,9 @@ export function slugify(str: string): string {
 
 export function generateOrderId(): string {
   const year = new Date().getFullYear();
-  const rand = Math.floor(1000 + Math.random() * 9000);
+  // 6 caractères sans ambiguïté (ni 0/O, ni 1/I) : environ un milliard de combinaisons par an
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const rand = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
   return `CMD-${year}-${rand}`;
 }

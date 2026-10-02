@@ -7,10 +7,51 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import {
   useCategories, addCategory, updateCategory, deleteCategory,
-  addSubCategory, updateSubCategory, deleteSubCategory, updateCategoryImage,
+  addSubCategory, updateSubCategory, deleteSubCategory, updateCategoryImage, updateCategoryDescription,
 } from "@/lib/categories";
 
 const inputCls = "px-3 py-2 border border-border rounded-lg text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition";
+
+/* Texte d'introduction affiché en haut de la page catégorie et repris dans la description Google */
+function DescriptionEditor({ categoryId, initial }: { categoryId: string; initial: string }) {
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const dirty = value.trim() !== initial.trim();
+
+  async function save() {
+    setSaving(true);
+    try {
+      await updateCategoryDescription(categoryId, value.trim());
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-brown-mid mb-1">
+        Texte d&apos;introduction <span className="font-normal text-brown-light">(2 à 4 phrases, avec les mots que tapent vos clientes sur Google)</span>
+      </label>
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={3}
+        placeholder="Ex : Des bijoux en résine qui préservent une mèche de cheveux, du lait maternel ou des fleurs séchées…"
+        className={`${inputCls} w-full resize-none`}
+      />
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-xs text-brown-light">{value.trim().length} caractères</span>
+        <button
+          onClick={save}
+          disabled={!dirty || saving}
+          className="px-3 py-1.5 bg-brown text-cream text-xs font-medium rounded-lg hover:bg-brown-mid transition-colors disabled:opacity-40"
+        >
+          {saving ? "Enregistrement…" : dirty ? "Enregistrer" : "Enregistré"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminCategoriesPage() {
   const { categories, loading } = useCategories();
@@ -207,6 +248,8 @@ export default function AdminCategoriesPage() {
                 {/* Sous-catégories */}
                 {isExpanded && (
                   <div className="border-t border-border bg-sand/50 px-4 py-3 space-y-2">
+                    <DescriptionEditor key={cat.description ?? ""} categoryId={cat.id} initial={cat.description ?? ""} />
+                    <p className="text-xs font-medium text-brown-mid pt-2">Sous-catégories</p>
                     {(cat.subCategories ?? []).length === 0 && addingSubFor !== cat.id && (
                       <p className="text-xs text-brown-light italic">Aucune sous-catégorie</p>
                     )}

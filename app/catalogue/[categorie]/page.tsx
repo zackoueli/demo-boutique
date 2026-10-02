@@ -1,54 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import CategoryClient from "./category-client";
+import { queryCollection } from "@/lib/firestore-rest";
 
-const PROJECT_ID = "fir-boutique-754bb";
+type Props = { params: Promise<{ categorie: string }> };
 
-type FirestoreStringValue = { stringValue: string };
-type FirestoreFields = {
-  key?: FirestoreStringValue;
-  label?: FirestoreStringValue;
-};
+const fetchCategory = cache(async (categorie: string) => {
+  const [doc] = await queryCollection("categories", { where: ["key", categorie], limit: 1, revalidate: 300 });
+  if (!doc) return null;
+  return {
+    key: (doc.data.key as string) ?? categorie,
+    label: (doc.data.label as string) ?? categorie,
+    // Texte d'introduction rédigé dans l'admin (Catégories)
+    description: ((doc.data.description as string) ?? "").trim(),
+  };
+});
 
-async function fetchCategory(categorie: string) {
-  try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: "categories" }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "key" },
-              op: "EQUAL",
-              value: { stringValue: categorie },
-            },
-          },
-          limit: 1,
-        },
-      }),
-      next: { revalidate: 300 },
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const fields: FirestoreFields = data[0]?.document?.fields;
-    if (!fields) return null;
-
-    return {
-      key: fields.key?.stringValue ?? categorie,
-      label: fields.label?.stringValue ?? categorie,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function generateMetadata(
-  props: { params: Promise<{ categorie: string }> }
-): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
   const { categorie } = await props.params;
   const category = await fetchCategory(categorie);
 
@@ -56,12 +25,15 @@ export async function generateMetadata(
     return { title: "Catégorie introuvable" };
   }
 
-  const title = `${category.label} — Bijoux mémoriels artisanaux`;
-  const description = `Découvrez notre collection de ${category.label.toLowerCase()} : bijoux mémoriels façonnés à la main dans notre atelier en Bretagne.`;
+  const title = `${category.label} — Créations artisanales en résine · L'Atelier d'Anaïs`;
+  const description = category.description
+    ? category.description.length > 155 ? `${category.description.slice(0, 155)}…` : category.description
+    : `Découvrez notre collection de ${category.label.toLowerCase()} : bijoux mémoriels façonnés à la main dans notre atelier en Bretagne.`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
+    alternates: { canonical: `/catalogue/${category.key}` },
     openGraph: {
       title,
       description,
@@ -70,13 +42,17 @@ export async function generateMetadata(
   };
 }
 
-export default async function CategoryPage(
-  props: { params: Promise<{ categorie: string }> }
-) {
+export default async function CategoryPage(props: Props) {
   const { categorie } = await props.params;
   const category = await fetchCategory(categorie);
 
   if (!category) notFound();
 
-  return <CategoryClient categoryKey={category.key} categoryLabel={category.label} />;
+  return (
+    <CategoryClient
+      categoryKey={category.key}
+      categoryLabel={category.label}
+      categoryDescription={category.description}
+    />
+  );
 }

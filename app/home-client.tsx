@@ -1,0 +1,818 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { collection, getDocs, query, orderBy, limit, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Product } from "@/lib/types";
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowRight, Mail, MapPin, Star } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useCategories } from "@/lib/categories";
+import type { Category } from "@/lib/categories";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { formatPrice } from "@/lib/utils";
+const PolaroidSection = dynamic(() => import("./ui/polaroid-section"), { ssr: false });
+
+interface Review {
+  id: string;
+  productId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  featured: boolean;
+  createdAt: { seconds: number } | null;
+}
+
+export default function HomeClient({
+  initialCategories,
+  initialFeatured,
+}: {
+  initialCategories: Category[];
+  initialFeatured: Product[];
+}) {
+  // Catégories et coups de cœur arrivent déjà rendus par le serveur, puis sont rafraîchis
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initialFeatured);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewProducts, setReviewProducts] = useState<Record<string, Product>>({});
+  const { categories: liveCategories } = useCategories();
+  const categories = liveCategories.length > 0 ? liveCategories : initialCategories;
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const snap = await getDocs(
+          query(collection(db, "products"), where("featured", "==", true), limit(20))
+        );
+        const featured = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
+        if (featured.length < 2) {
+          const fill = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(20)));
+          setFeaturedProducts(fill.docs.map((d) => ({ id: d.id, ...d.data() } as Product)));
+        } else {
+          setFeaturedProducts(featured);
+        }
+      } catch {
+        // On garde la sélection fournie par le serveur
+      }
+    }
+    async function loadReviews() {
+      try {
+        const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(100)));
+        const all = snap.docs.map((d) => ({ id: d.id, featured: false, ...d.data() } as Review));
+        // Priorité aux avis mis en avant, sinon fallback sur note >= 4
+        const featured = all.filter((r) => r.featured && r.comment?.trim());
+        const best = featured.length > 0
+          ? featured
+          : all.filter((r) => r.rating >= 4 && r.comment?.trim()).slice(0, 12);
+        setReviews(best);
+        // Charge les produits associés
+        const productIds = [...new Set(best.map((r) => r.productId).filter(Boolean))];
+        if (productIds.length > 0) {
+          const prodSnap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc"), limit(100)));
+          const map: Record<string, Product> = {};
+          prodSnap.docs.forEach((d) => {
+            if (productIds.includes(d.id)) map[d.id] = { id: d.id, ...d.data() } as Product;
+          });
+          setReviewProducts(map);
+        }
+      } catch {
+        setReviews([]);
+      }
+    }
+    load();
+    loadReviews();
+  }, []);
+
+  return (
+    <div style={{ background: "#fdf8f4" }}>
+
+      {/* Barre d'annonce */}
+      <div style={{ background: "#3d2b1f" }} className="text-white/70 text-xs py-2 text-center tracking-widest font-medium">
+        ✦&nbsp; Livraison offerte dès {formatPrice(FREE_SHIPPING_THRESHOLD)} &nbsp;·&nbsp; Créations artisanales en résine &nbsp;·&nbsp; Bretagne &nbsp;✦
+      </div>
+
+      {/* ══════════════════════════════════════
+          HERO — Entrée dans l'atelier
+      ══════════════════════════════════════ */}
+      <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: "#fdf3ee" }}>
+
+        {/* Texture grain subtile */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundSize: "200px"
+        }} />
+
+        {/* Lumière chaude venant du coin haut-droit */}
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] pointer-events-none" style={{
+          background: "radial-gradient(ellipse at top right, rgba(192,130,106,0.18) 0%, transparent 65%)"
+        }} />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] pointer-events-none" style={{
+          background: "radial-gradient(ellipse at bottom left, rgba(61,43,31,0.06) 0%, transparent 65%)"
+        }} />
+
+        {/* Inclusions en résine — motif signature : fragments suspendus comme dans les bijoux */}
+        <ResinInclusions />
+
+        <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-0 md:pt-24 grid md:grid-cols-2 gap-0 items-end min-h-[calc(100vh-2rem)]">
+
+          {/* Gauche — texte */}
+          <div className="flex flex-col justify-center gap-8 pb-16 md:pb-24">
+            <FadeIn>
+              <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "#c0826a" }}>
+                <MapPin size={12} />
+                <span className="uppercase tracking-[0.25em]">Bretagne · Atelier artisanal</span>
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={80}>
+              <h1 className="font-serif font-semibold leading-[1.08]" style={{ fontSize: "clamp(3rem, 5.5vw, 5rem)", color: "#3d2b1f" }}>
+                Atelier de création<br />
+                de bijoux<br />
+                <em className="not-italic" style={{ color: "#c0826a" }}>mémoriel.</em>
+              </h1>
+            </FadeIn>
+
+            <FadeIn delay={160}>
+              <p className="text-lg leading-relaxed max-w-md" style={{ color: "#8a6858" }}>
+                Je m&apos;appelle Anaïs. Ici, dans ce petit coin de Bretagne,
+                je façonne à la main des bijoux en résine qui gardent vivants
+                vos souvenirs les plus précieux.
+              </p>
+            </FadeIn>
+
+            <FadeIn delay={240}>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/catalogue"
+                  className="flex items-center gap-2 px-7 py-3.5 text-white font-medium rounded-full text-sm transition-all hover:opacity-90"
+                  style={{ background: "#3d2b1f" }}
+                >
+                  Découvrir les créations <ArrowRight size={14} />
+                </Link>
+                <Link
+                  href="/contact"
+                  className="flex items-center gap-2 px-7 py-3.5 border font-medium rounded-full text-sm transition-all hover:bg-white/50"
+                  style={{ borderColor: "#c0826a", color: "#c0826a" }}
+                >
+                  <Mail size={14} /> Écrire à Anaïs
+                </Link>
+              </div>
+            </FadeIn>
+
+            {/* Petits détails artisanaux */}
+            <FadeIn delay={320}>
+              <div className="flex gap-6 pt-2">
+                {[
+                  { val: "100%", label: "Fait main" },
+                  { val: "Résine", label: "ArtResin & Resiners" },
+                  { val: "Unique", label: "Chaque pièce" },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <p className="font-serif font-semibold text-sm" style={{ color: "#3d2b1f" }}>{item.val}</p>
+                    <p className="text-xs" style={{ color: "#b09080" }}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+          </div>
+
+          {/* Droite — accès bijoux mémoriels */}
+          <FadeIn delay={100} className="relative flex items-center justify-center pb-16 md:pb-24">
+            <MemorialCard categories={categories} />
+          </FadeIn>
+        </div>
+
+        {/* Vague de transition */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 80 }}>
+          <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+            <path d="M0,80 C360,20 1080,20 1440,80 L1440,80 L0,80 Z" fill="#fdf8f4" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          SECTION — Collections
+      ══════════════════════════════════════ */}
+      {categories.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-16 md:py-20">
+          <FadeIn>
+            <div className="text-center mb-10">
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-2" style={{ color: "#c0826a" }}>L&apos;atelier</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Collections</h2>
+            </div>
+          </FadeIn>
+
+          <div className={`grid gap-4 ${categories.length === 1 ? "grid-cols-1" : categories.length === 2 ? "grid-cols-2" : categories.length === 3 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
+            {categories.map((cat, i) => (
+              <FadeIn key={cat.id} delay={i * 70} className={i % 2 === 1 && categories.length > 2 ? "md:mt-8" : ""}>
+                <Link
+                  href={`/catalogue/${cat.key}`}
+                  className="group relative block overflow-hidden rounded-2xl"
+                  style={{ aspectRatio: categories.length <= 2 ? "2/3" : categories.length === 3 && i === 0 ? "2/3" : "3/4", minHeight: 320 }}
+                >
+                  {/* Image ou fond dégradé */}
+                  {cat.imageUrl ? (
+                    <Image
+                      src={cat.imageUrl}
+                      alt={cat.label}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="absolute inset-0" style={{
+                      background: `linear-gradient(135deg, hsl(${18 + i * 6}, ${42 - i * 3}%, ${76 - i * 6}%), hsl(${12 + i * 4}, ${38 - i * 2}%, ${42 - i * 4}%))`
+                    }} />
+                  )}
+
+                  {/* Overlay sombre au bas */}
+                  <div className="absolute inset-0" style={{
+                    background: "linear-gradient(to top, rgba(30,15,5,0.75) 0%, rgba(30,15,5,0.2) 45%, transparent 70%)"
+                  }} />
+
+                  {/* Texte */}
+                  <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+                    <p className="font-serif text-xl md:text-2xl font-semibold text-white leading-tight mb-1">
+                      {cat.label}
+                    </p>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/70 flex items-center gap-1.5 transition-all duration-300 group-hover:gap-3">
+                      Je découvre <ArrowRight size={11} />
+                    </p>
+                  </div>
+                </Link>
+              </FadeIn>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════
+          SECTION — Création sur mesure
+      ══════════════════════════════════════ */}
+      <FadeIn>
+        <section className="max-w-6xl mx-auto px-6 py-6 md:py-8">
+          <div
+            className="relative overflow-hidden rounded-3xl px-8 md:px-14 py-10 md:py-12 flex flex-col md:flex-row items-center gap-8"
+            style={{ background: "linear-gradient(120deg, #fdf3ee 0%, #f5e6da 100%)", border: "1px solid #e8ddd5" }}
+          >
+            {/* Lumière décorative */}
+            <div className="absolute right-0 top-0 w-64 h-64 pointer-events-none" style={{
+              background: "radial-gradient(circle at top right, rgba(192,130,106,0.18) 0%, transparent 65%)"
+            }} />
+            <ResinInclusions />
+
+            {/* Icône */}
+            <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ background: "rgba(192,130,106,0.12)" }}>
+              ✦
+            </div>
+
+            {/* Texte */}
+            <div className="flex-1 text-center md:text-left">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] mb-2" style={{ color: "#c0826a" }}>Création personnalisée</p>
+              <h3 className="font-serif text-2xl md:text-3xl font-semibold leading-snug mb-2" style={{ color: "#3d2b1f" }}>
+                Envie d&apos;une pièce unique,<br className="hidden md:block" /> entièrement pensée par vous ?
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "#8a6858", maxWidth: "52ch" }}>
+                Bijou, objet déco, porte-clef… Si vous ne trouvez pas exactement ce que vous cherchez dans le catalogue,
+                contactez-moi et créons-le ensemble.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <div className="flex-shrink-0">
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-medium text-white transition-all hover:opacity-90"
+                style={{ background: "#3d2b1f" }}
+              >
+                <Mail size={14} /> Me contacter
+              </Link>
+            </div>
+          </div>
+        </section>
+      </FadeIn>
+
+      {/* ══════════════════════════════════════
+          SECTION — Mes coups de cœur
+      ══════════════════════════════════════ */}
+      {featuredProducts.length > 0 && (
+        <CoupsDeCoeur products={featuredProducts} />
+      )}
+
+      {/* ══════════════════════════════════════
+          SECTION — Avis clients
+      ══════════════════════════════════════ */}
+      {reviews.length > 0 && <ReviewsSection reviews={reviews} products={reviewProducts} />}
+
+      {/* ══════════════════════════════════════
+          SECTION — La femme derrière l'atelier
+      ══════════════════════════════════════ */}
+      <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
+        <div className="grid md:grid-cols-5 gap-12 items-center">
+
+          <FadeIn className="md:col-span-3">
+            <div className="space-y-6">
+              <p className="text-xs font-medium uppercase tracking-[0.22em]" style={{ color: "#c0826a" }}>La femme derrière l&apos;atelier</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold leading-[1.2]" style={{ color: "#3d2b1f" }}>
+                Un souvenir confié,<br />une vie préservée.
+              </h2>
+              <p className="leading-relaxed text-base" style={{ color: "#8a6858" }}>
+                Maman de trois enfants, femme de militaire, je sais ce que c&apos;est que de
+                vivre dans l&apos;impermanence — de tenir des instants qui filent trop vite.
+                C&apos;est cette douleur douce qui m&apos;a amenée à la résine.
+              </p>
+              <p className="leading-relaxed text-base" style={{ color: "#8a6858" }}>
+                Lait maternel, mèches de cheveux, fleurs séchées, cendres…
+                Chaque élément que vous me confiez est reçu avec respect et gratitude.
+                <strong style={{ color: "#3d2b1f" }}> Je sais ce qu&apos;il représente.</strong>
+              </p>
+              <Link href="/a-propos" className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: "#c0826a" }}>
+                Mon histoire complète <ArrowRight size={13} />
+              </Link>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={120} className="md:col-span-2">
+            <div className="relative rounded-3xl overflow-hidden" style={{ aspectRatio: "3/4", boxShadow: "0 16px 48px rgba(61,43,31,0.18)" }}>
+              <Image
+                src="https://firebasestorage.googleapis.com/v0/b/fir-boutique-754bb.firebasestorage.app/o/image%20170.png?alt=media&token=21cfe27b-d371-4eea-a3fb-b607f30b6bb7"
+                alt="Anaïs, fondatrice"
+                fill
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="object-cover"
+              />
+            </div>
+          </FadeIn>
+
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          SECTION — Photos souvenirs polaroïd
+      ══════════════════════════════════════ */}
+      <PolaroidSection />
+
+      {/* ══════════════════════════════════════
+          CTA — Parlons de votre projet
+      ══════════════════════════════════════ */}
+      <section className="px-6 py-16 md:py-24">
+        <FadeIn>
+          <div className="max-w-3xl mx-auto rounded-3xl overflow-hidden relative" style={{ background: "linear-gradient(135deg, #3d2b1f 0%, #6b4535 100%)" }}>
+            {/* Lumière décorative */}
+            <div className="absolute top-0 right-0 w-64 h-64 pointer-events-none" style={{
+              background: "radial-gradient(circle, rgba(192,130,106,0.3) 0%, transparent 70%)",
+              transform: "translate(20%, -20%)"
+            }} />
+            <div className="relative px-10 md:px-16 py-14 text-center">
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-4" style={{ color: "#c0826a" }}>
+                Votre histoire mérite d&apos;être préservée
+              </p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold text-white mb-5">
+                Parlons de votre projet
+              </h2>
+              <p className="max-w-sm mx-auto leading-relaxed mb-10" style={{ color: "#c8b49a" }}>
+                Un souvenir à préserver ? Une idée ? Écrivez-moi —
+                chaque conversation commence par un échange humain, jamais une transaction.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/contact"
+                  className="flex items-center justify-center gap-2 px-8 py-4 font-medium rounded-full text-sm transition-all hover:opacity-90"
+                  style={{ background: "#c0826a", color: "white" }}
+                >
+                  <Mail size={15} /> Écrire à Anaïs
+                </Link>
+                <Link
+                  href="/catalogue"
+                  className="flex items-center justify-center gap-2 px-8 py-4 border border-white/20 text-white/80 font-medium rounded-full hover:bg-white/10 transition-colors text-sm"
+                >
+                  Voir les créations <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+    </div>
+  );
+}
+
+/* ── Carte d'accès bijoux mémoriels — hero droit ── */
+function MemorialCard({ categories }: { categories: Category[] }) {
+  const memorialCat = categories.find(
+    (c) => c.key?.toLowerCase().includes("memoriel") || c.key?.toLowerCase().includes("memorial") || c.label?.toLowerCase().includes("mémoriel")
+  );
+  const href = memorialCat ? `/univers/${memorialCat.key}` : "/catalogue";
+
+  return (
+    <Link
+      href={href}
+      className="group relative block rounded-3xl overflow-hidden w-full max-w-md"
+      style={{
+        aspectRatio: "3/4",
+        maxHeight: "min(75vh, 580px)",
+        boxShadow: "0 24px 64px rgba(61,43,31,0.22)",
+      }}
+    >
+      {/* Photo de la catégorie ou fond dégradé fallback */}
+      {memorialCat?.imageUrl ? (
+        <Image
+          src={memorialCat.imageUrl}
+          alt="Bijoux mémoriels"
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          preload
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0" style={{
+          background: "linear-gradient(160deg, #2a1a10 0%, #5a3520 50%, #3d2b1f 100%)"
+        }} />
+      )}
+
+      {/* Overlay sombre pour lisibilité du texte */}
+      <div className="absolute inset-0" style={{
+        background: "linear-gradient(to top, rgba(20,10,5,0.88) 0%, rgba(20,10,5,0.45) 50%, rgba(20,10,5,0.2) 100%)"
+      }} />
+
+      {/* Contenu */}
+      <div className="relative h-full flex flex-col justify-between p-8 md:p-10">
+
+        {/* Badge haut */}
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#c0826a" }} />
+          <p className="text-xs font-medium uppercase tracking-[0.22em]" style={{ color: "#c0826a" }}>
+            Mon univers principal
+          </p>
+        </div>
+
+        {/* Centre — texte principal */}
+        <div className="flex flex-col gap-5">
+          <h2 className="font-serif font-semibold text-white leading-[1.15]" style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)" }}>
+            Bijoux<br />
+            <em className="not-italic" style={{ color: "#c0826a" }}>mémoriels</em>
+          </h2>
+          <p className="text-sm leading-relaxed" style={{ color: "#c8b49a", maxWidth: "26ch" }}>
+            Je transforme vos souvenirs les plus précieux — lait maternel, mèches de cheveux,
+            fleurs séchées — en un bijou unique à porter près du cœur.
+          </p>
+
+          {/* Tags inclusions */}
+          <div className="flex flex-wrap gap-2">
+            {["Lait maternel", "Cheveux", "Fleurs", "Cendres"].map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-3 py-1 rounded-full"
+                style={{ background: "rgba(192,130,106,0.15)", color: "#c0826a", border: "1px solid rgba(192,130,106,0.25)" }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA bas */}
+        <div
+          className="flex items-center gap-2 text-sm font-medium transition-all duration-300 group-hover:gap-4"
+          style={{ color: "white" }}
+        >
+          Découvrir mon savoir-faire <ArrowRight size={15} />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Carrousel "Mes coups de cœur" ── */
+function CoupsDeCoeur({ products }: { products: Product[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  function onMouseDown(e: React.MouseEvent) {
+    isDragging.current = true;
+    hasDragged.current = false;
+    startX.current = e.pageX - (scrollRef.current?.offsetLeft ?? 0);
+    scrollLeft.current = scrollRef.current?.scrollLeft ?? 0;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grabbing";
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.2;
+    if (Math.abs(walk) > 4) hasDragged.current = true;
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  }
+
+  function onMouseUp() {
+    isDragging.current = false;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grab";
+  }
+
+  function onClickCapture(e: React.MouseEvent) {
+    if (hasDragged.current) e.preventDefault();
+  }
+
+  return (
+    <section style={{ borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5", background: "#fdf8f4" }} className="py-12 md:py-14">
+
+      {/* Header — même padding que le reste de la page */}
+      <div className="max-w-6xl mx-auto px-6 md:px-12 mb-7">
+        <FadeIn>
+          <p className="text-xs font-medium uppercase tracking-[0.25em] mb-1" style={{ color: "#c0826a" }}>Sélection</p>
+          <h2 className="font-serif text-3xl font-semibold" style={{ color: "#3d2b1f" }}>Mes coups de cœur</h2>
+        </FadeIn>
+      </div>
+
+      {/* Carrousel : aligné à gauche avec le titre, déborde à droite */}
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto select-none"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          paddingLeft: "max(1.5rem, calc((100vw - 72rem) / 2 + 3rem))",
+          paddingRight: "clamp(1.5rem, 5vw, 3rem)",
+          paddingBottom: 8,
+          cursor: "grab",
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onClickCapture={onClickCapture}
+      >
+        {products.map((p, i) => (
+          <Link
+            key={p.id}
+            href={`/produits/${p.slug}`}
+            className="group flex-shrink-0 block overflow-hidden transition-all"
+            style={{ width: "clamp(240px, 28vw, 340px)" }}
+            draggable={false}
+          >
+            <div className="relative overflow-hidden rounded-xl" style={{ aspectRatio: "3/4" }}>
+              {p.imageUrl ? (
+                <Image
+                  src={p.imageUrl}
+                  alt={p.name}
+                  fill
+                  sizes="260px"
+                  className="object-cover transition-transform duration-600 group-hover:scale-105"
+                  draggable={false}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: `hsl(${20 + i * 20}, 28%, ${85 - i * 2}%)` }}>
+                  <span className="text-4xl opacity-30">✨</span>
+                </div>
+              )}
+            </div>
+            <div className="pt-3 pb-1">
+              <p className="font-serif font-semibold text-sm truncate" style={{ color: "#3d2b1f" }}>{p.name}</p>
+              <p className="text-sm font-medium mt-1" style={{ color: "#3d2b1f" }}>{p.price ? (p.price / 100).toFixed(2) : "—"} €</p>
+              <p className="text-xs mt-0.5" style={{ color: "#b09080" }}>Pièce unique · Fait main</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── Section avis clients ── */
+function ReviewsSection({ reviews, products }: { reviews: Review[]; products: Record<string, Product> }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  function onMouseDown(e: React.MouseEvent) {
+    isDragging.current = true;
+    hasDragged.current = false;
+    startX.current = e.pageX - (scrollRef.current?.offsetLeft ?? 0);
+    scrollLeft.current = scrollRef.current?.scrollLeft ?? 0;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grabbing";
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.2;
+    if (Math.abs(walk) > 4) hasDragged.current = true;
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  }
+  function onMouseUp() {
+    isDragging.current = false;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grab";
+  }
+
+  const avg = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10;
+
+  return (
+    <section style={{ background: "#fdf3ee", borderTop: "1px solid #e8ddd5", borderBottom: "1px solid #e8ddd5" }} className="py-14 md:py-20">
+      <div className="max-w-6xl mx-auto px-6 mb-10">
+        <FadeIn>
+          <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.25em] mb-2" style={{ color: "#c0826a" }}>Ce qu&apos;elles disent</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-semibold" style={{ color: "#3d2b1f" }}>Avis de mes clientes</h2>
+            </div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex gap-0.5">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} size={16} fill={s <= Math.round(avg) ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
+                ))}
+              </div>
+              <span className="text-sm font-semibold" style={{ color: "#3d2b1f" }}>{avg}/5</span>
+              <span className="text-xs" style={{ color: "#b09080" }}>({reviews.length} avis)</span>
+            </div>
+          </div>
+        </FadeIn>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto select-none"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          paddingLeft: "max(1.5rem, calc((100vw - 72rem) / 2 + 1.5rem))",
+          paddingRight: "clamp(1.5rem, 5vw, 3rem)",
+          paddingBottom: 8,
+          cursor: "grab",
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+      >
+        {reviews.map((review, i) => {
+          const product = products[review.productId];
+          return (
+            <FadeIn key={review.id} delay={i * 60}>
+              <div
+                className="flex-shrink-0 flex flex-col gap-4 p-6 rounded-2xl"
+                style={{
+                  width: "clamp(260px, 30vw, 340px)",
+                  background: "white",
+                  border: "1px solid #e8ddd5",
+                }}
+              >
+                {/* Étoiles */}
+                <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} size={14} fill={s <= review.rating ? "#c0826a" : "none"} stroke="#c0826a" strokeWidth={1.5} />
+                  ))}
+                </div>
+                {/* Commentaire */}
+                <p className="text-sm leading-relaxed flex-1" style={{ color: "#5a3f30" }}>
+                  &ldquo;{review.comment}&rdquo;
+                </p>
+                {/* Auteur */}
+                <div className="flex items-center gap-2" style={{ color: "#3d2b1f" }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0" style={{ background: "#c0826a" }}>
+                    {review.userName?.[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <p className="text-xs font-medium">{review.userName}</p>
+                </div>
+                {/* Produit lié */}
+                {product && (
+                  <Link
+                    href={`/produits/${product.slug}`}
+                    className="flex items-center gap-3 pt-3 border-t group"
+                    style={{ borderColor: "#f0e8e0" }}
+                  >
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "#fdf3ee" }}>
+                      {product.imageUrl && (
+                        <Image src={product.imageUrl} alt={product.name} fill sizes="40px" className="object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate group-hover:underline" style={{ color: "#3d2b1f" }}>{product.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#c0826a" }}>Voir le produit →</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </FadeIn>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ── Inclusions en résine — motif signature du hero ──
+   De petits fragments suspendus (goutte, brin, pétale) qui évoquent
+   ce que contiennent réellement les bijoux : lait, cheveux, fleurs séchées. */
+function ResinInclusions() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <svg
+        className="absolute inset-0 w-full h-full"
+        style={{ animation: "resin-drift 22s ease-in-out infinite" }}
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        {/* Goutte pleine — lait maternel */}
+        <circle cx="120" cy="180" r="11" fill="#c0826a" opacity="0.5" />
+        <circle cx="165" cy="215" r="5" fill="#c0826a" opacity="0.35" />
+        <circle cx="95" cy="230" r="3" fill="#8a6858" opacity="0.3" />
+        <circle cx="60" cy="120" r="6" fill="#c0826a" opacity="0.3" />
+
+        {/* Brin — mèche de cheveux */}
+        <path d="M 260 80 Q 288 130 268 175 Q 248 218 280 255" stroke="#8a6858" strokeWidth="2.6" fill="none" opacity="0.42" strokeLinecap="round" />
+        <path d="M 320 60 Q 340 100 326 135" stroke="#a07860" strokeWidth="2" fill="none" opacity="0.3" strokeLinecap="round" />
+        <path d="M 420 200 Q 445 240 428 275" stroke="#8a6858" strokeWidth="1.8" fill="none" opacity="0.24" strokeLinecap="round" />
+
+        {/* Pétale — fleur séchée */}
+        <ellipse cx="1180" cy="140" rx="18" ry="8" fill="#c0826a" opacity="0.4" transform="rotate(-25 1180 140)" />
+        <ellipse cx="1210" cy="165" rx="14" ry="6" fill="#a07860" opacity="0.32" transform="rotate(20 1210 165)" />
+        <ellipse cx="1155" cy="175" rx="10" ry="4.5" fill="#c0826a" opacity="0.28" transform="rotate(60 1155 175)" />
+        <ellipse cx="1250" cy="90" rx="12" ry="5" fill="#8a6858" opacity="0.26" transform="rotate(-40 1250 90)" />
+
+        {/* Bulles */}
+        <circle cx="1340" cy="260" r="7" fill="none" stroke="#c0826a" strokeWidth="1.6" opacity="0.5" />
+        <circle cx="70" cy="520" r="9" fill="none" stroke="#c0826a" strokeWidth="1.6" opacity="0.4" />
+        <circle cx="1380" cy="400" r="4" fill="#c0826a" opacity="0.3" />
+        <circle cx="40" cy="440" r="4.5" fill="#8a6858" opacity="0.32" />
+        <circle cx="1420" cy="60" r="6" fill="none" stroke="#c0826a" strokeWidth="1.4" opacity="0.36" />
+        <circle cx="1300" cy="500" r="5" fill="#a07860" opacity="0.28" />
+        <circle cx="1400" cy="620" r="8" fill="none" stroke="#8a6858" strokeWidth="1.4" opacity="0.32" />
+        <circle cx="10" cy="650" r="5" fill="#c0826a" opacity="0.26" />
+
+        {/* Essaim centre-bas */}
+        <circle cx="680" cy="700" r="7" fill="#c0826a" opacity="0.32" />
+        <circle cx="715" cy="722" r="4" fill="#8a6858" opacity="0.36" />
+        <path d="M 750 675 Q 766 700 752 725" stroke="#a07860" strokeWidth="2.2" fill="none" opacity="0.32" strokeLinecap="round" />
+        <ellipse cx="640" cy="730" rx="10" ry="4.5" fill="#c0826a" opacity="0.24" transform="rotate(-15 640 730)" />
+        <circle cx="820" cy="760" r="5" fill="#8a6858" opacity="0.26" />
+
+        {/* Brin bas-gauche */}
+        <path d="M 55 760 Q 82 795 62 830" stroke="#8a6858" strokeWidth="2.2" fill="none" opacity="0.36" strokeLinecap="round" />
+        <ellipse cx="200" cy="810" rx="13" ry="5.5" fill="#c0826a" opacity="0.3" transform="rotate(15 200 810)" />
+        <circle cx="150" cy="850" r="5" fill="#a07860" opacity="0.26" />
+        <circle cx="280" cy="870" r="4" fill="#c0826a" opacity="0.22" />
+
+        {/* Bas-droite, sous la carte */}
+        <ellipse cx="1250" cy="800" rx="11" ry="5" fill="#c0826a" opacity="0.26" transform="rotate(35 1250 800)" />
+        <circle cx="1350" cy="850" r="6" fill="none" stroke="#8a6858" strokeWidth="1.4" opacity="0.3" />
+        <path d="M 1180 830 Q 1200 860 1185 890" stroke="#a07860" strokeWidth="1.8" fill="none" opacity="0.24" strokeLinecap="round" />
+
+        {/* Fragments centre-haut, discrets près du titre */}
+        <circle cx="480" cy="60" r="3.5" fill="#c0826a" opacity="0.22" />
+        <ellipse cx="900" cy="80" rx="8" ry="3.5" fill="#a07860" opacity="0.24" transform="rotate(-10 900 80)" />
+        <circle cx="600" cy="850" r="4" fill="#c0826a" opacity="0.2" />
+        <ellipse cx="1000" cy="850" rx="7" ry="3" fill="#8a6858" opacity="0.2" transform="rotate(15 1000 850)" />
+      </svg>
+      <style>{`
+        @keyframes resin-drift {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          svg { animation: none !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Animation fade-in au scroll ──
+   Le contenu est visible par défaut (HTML du serveur, lecteurs sans JavaScript, premier affichage) ;
+   seuls les blocs encore hors écran au chargement sont masqués puis révélés au défilement. */
+function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || el.getBoundingClientRect().top < window.innerHeight) return;
+
+    el.style.opacity = "0";
+    el.style.transform = "translateY(24px)";
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.style.transition = `opacity 0.8s ease ${delay}ms, transform 0.8s ease ${delay}ms`;
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.08 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [delay]);
+
+  return (
+    <div ref={ref} className={className}>
+      {children}
+    </div>
+  );
+}

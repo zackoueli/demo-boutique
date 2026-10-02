@@ -32,6 +32,7 @@ const EMPTY_CUSTOM_FIELD: Omit<CustomizationField, "id"> = {
 const inputCls = "w-full px-4 py-3 border border-border rounded-xl text-sm bg-cream text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:border-transparent transition";
 
 const PROD_PAGE_SIZE = 50;
+const MAX_RELATED = 3;
 
 export default function AdminProduitsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,6 +45,7 @@ export default function AdminProduitsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [customFields, setCustomFields] = useState<CustomizationField[]>([]);
+  const [relatedIds, setRelatedIds] = useState<string[]>([]);
   const [showCustomSection, setShowCustomSection] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -203,6 +205,7 @@ export default function AdminProduitsPage() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setCustomFields([]);
+    setRelatedIds([]);
     setShowCustomSection(false);
     setUploadProgress(null);
     setExtraUploadProgress(null);
@@ -224,6 +227,7 @@ export default function AdminProduitsPage() {
       materials: p.materials ?? "", careInstructions: p.careInstructions ?? "",
     });
     setCustomFields(p.customizationFields ?? []);
+    setRelatedIds(p.relatedProductIds ?? []);
     setShowCustomSection((p.customizationFields ?? []).length > 0);
     setUploadProgress(null);
     setExtraUploadProgress(null);
@@ -258,6 +262,7 @@ export default function AdminProduitsPage() {
         customizationFields: customFields
           .filter((f) => f.label.trim())
           .map((f) => ({ ...f, options: (f.options ?? []).filter(Boolean) })),
+        relatedProductIds: relatedIds,
       };
       if (editing) {
         await updateDoc(doc(db, "products", editing.id), data);
@@ -636,7 +641,7 @@ export default function AdminProduitsPage() {
                   value={form.materials}
                   onChange={(e) => setForm((f) => ({ ...f, materials: e.target.value }))}
                   rows={2}
-                  placeholder="Ex : Or 18 carats, Diamant 0.5ct, Platine"
+                  placeholder="Ex : Résine ArtResin, argent 925, fleurs séchées"
                   className={inputCls + " resize-none"}
                 />
               </FormField>
@@ -655,6 +660,42 @@ export default function AdminProduitsPage() {
                 <input type="checkbox" checked={form.featured} onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))} className="w-4 h-4 rounded accent-terracotta" />
                 <span className="text-sm font-medium text-brown-mid">Mettre en vedette (homepage)</span>
               </label>
+
+              {/* ─── Produits complémentaires ─── */}
+              <FormField label="Produits complémentaires">
+                <p className="text-xs text-brown-light mb-2">
+                  {MAX_RELATED} au plus, vraiment utiles avec ce produit (la chaîne avec le pendentif, l&apos;écrin avec la bague…). Affichés sur la fiche.
+                </p>
+                {relatedIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {relatedIds.map((id) => (
+                      <span key={id} className="inline-flex items-center gap-1.5 text-xs bg-sand border border-border rounded-lg pl-2.5 pr-1.5 py-1 text-brown-mid">
+                        {products.find((p) => p.id === id)?.name ?? "Produit supprimé"}
+                        <button
+                          type="button"
+                          onClick={() => setRelatedIds((prev) => prev.filter((r) => r !== id))}
+                          aria-label="Retirer ce produit complémentaire"
+                          className="text-brown-light hover:text-terracotta transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {relatedIds.length < MAX_RELATED && (
+                  <select
+                    value=""
+                    onChange={(e) => { const id = e.target.value; if (id) setRelatedIds((prev) => [...prev, id]); }}
+                    className={inputCls}
+                  >
+                    <option value="">— Ajouter un produit —</option>
+                    {products
+                      .filter((p) => p.id !== editing?.id && !relatedIds.includes(p.id))
+                      .map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                )}
+              </FormField>
 
               {/* ─── Section personnalisation ─── */}
               <div className="border border-border rounded-2xl overflow-hidden">

@@ -159,7 +159,7 @@ function ConversationDetail({
               }`}
             >
               {msg.sender === "admin" && (
-                <p className="text-xs font-semibold mb-1 text-terracotta">Bijoux & Co</p>
+                <p className="text-xs font-semibold mb-1 text-terracotta">L&apos;Atelier d&apos;Anaïs</p>
               )}
               <p className="leading-relaxed">{msg.content}</p>
               <p className={`text-xs mt-1 ${msg.sender === "user" ? "text-cream/60" : "text-brown-light"}`}>

@@ -6,7 +6,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
-import { Star } from "lucide-react";
+import { Star, BadgeCheck } from "lucide-react";
+import { invalidateRatings } from "@/lib/ratings";
 
 interface Review {
   id: string;
@@ -14,6 +15,8 @@ interface Review {
   userName: string;
   rating: number;
   comment: string;
+  /** Avis déposé depuis l'email envoyé après livraison */
+  verified?: boolean;
   createdAt: { seconds: number } | null;
 }
 
@@ -82,6 +85,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
         comment: comment.trim(),
         createdAt: serverTimestamp(),
       });
+      invalidateRatings();
       setComment("");
       setRating(5);
       setShowForm(false);
@@ -181,7 +185,14 @@ export default function ProductReviews({ productId }: { productId: string }) {
             <div key={r.id} className="bg-sand border border-border rounded-2xl p-5">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-medium text-brown text-sm">{r.userName}</p>
+                  <p className="font-medium text-brown text-sm flex items-center gap-2">
+                    {r.userName}
+                    {r.verified && (
+                      <span className="inline-flex items-center gap-1 text-xs font-normal text-green-700">
+                        <BadgeCheck size={13} /> Achat vérifié
+                      </span>
+                    )}
+                  </p>
                   <StarRating value={r.rating} />
                 </div>
                 {r.createdAt && (

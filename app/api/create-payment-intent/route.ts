@@ -1,134 +1,128 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
+import { getAdminDb, getRequestUid } from "@/lib/firebase-admin";
+import { isValidEmail } from "@/lib/api-helpers";
+import { calcExtra, optionLabel } from "@/lib/customization";
+import { computeShippingCost, findCarrier, type DeliveryType } from "@/lib/shipping";
+import type { CheckoutItem, CheckoutSession, CheckoutShipping } from "@/lib/orders-server";
+import type { CustomizationField, RelayPoint } from "@/lib/types";
 
-function getAdminDb() {
-  if (!getApps().length) {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      }),
-    });
-  }
-  return getFirestore();
-}
-
-/* ─── Constantes livraison (miroir de checkout/page.tsx) ─── */
-const FREE_SHIPPING_THRESHOLD = 8000;
-const CARRIERS: Record<string, number> = {
-  "mondial-relay": 450,
-  "colissimo": 599,
-  "dpd-home": 499,
-};
-
-/* ─── Helpers options personnalisation ─── */
-function optionExtra(opt: string): number {
-  const parts = opt.split(":");
-  if (parts.length < 2) return 0;
-  return Math.round(parseFloat(parts[1].trim()) * 100) || 0;
-}
-
-function optionLabel(opt: string): string {
-  return opt.split(":")[0].trim();
-}
-
-interface CustomizationField {
-  id: string;
-  type: "text" | "select" | "color";
-  options?: string[];
-  extraPrice?: number;
-  required: boolean;
-}
-
-function calcExtra(fields: CustomizationField[], customization: Record<string, string>): number {
-  let extra = 0;
-  for (const field of fields) {
-    const val = customization[field.id];
-    if (!val) continue;
-    if (field.type === "text") {
-      extra += field.extraPrice ?? 0;
-    } else {
-      const matched = field.options?.find((o) => optionLabel(o) === val);
-      if (matched) extra += optionExtra(matched);
-    }
-  }
-  return extra;
-}
+const ORDER_ID_REGEX = /^CMD-\d{4}-[A-Z0-9]{4,12}$/;
+const DELIVERY_TYPES: DeliveryType[] = ["home", "relay", "pickup"];
 
 interface CartItemPayload {
+  cartItemId?: string;
   productId: string;
   quantity: number;
   customization?: Record<string, string>;
 }
 
+interface Payload {
+  orderId: string;
+  email: string;
+  fullName: string;
+  deliveryType: DeliveryType;
+  carrierId?: string;
+  promoCode?: string;
+  items: CartItemPayload[];
+  relayPoint?: RelayPoint;
+  address?: string;
+  city?: string;
+  postal?: string;
+}
+
+function clean(value: unknown, max = 200): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function badRequest(error: string) {
+  return NextResponse.json({ error }, { status: 400 });
+}
+
 export async function POST(req: NextRequest) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   try {
-    const {
-      orderId,
-      email,
-      fullName,
-      deliveryType,
-      carrierId,
-      promoCode,
-      items,
-      ...rest
-    }: {
-      orderId: string;
-      email: string;
-      fullName: string;
-      deliveryType: "home" | "relay" | "pickup";
-      carrierId?: string;
-      promoCode?: string;
-      items: CartItemPayload[];
-      [key: string]: unknown;
-    } = await req.json();
+    const body: Payload = await req.json();
+    const { orderId, deliveryType, carrierId, promoCode, items } = body;
+    const email = clean(body.email, 254);
+    const fullName = clean(body.fullName);
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Panier vide" }, { status: 400 });
-    }
+    if (typeof orderId !== "string" || !ORDER_ID_REGEX.test(orderId)) return badRequest("Référence de commande invalide");
+    if (!isValidEmail(email)) return badRequest("Adresse email invalide");
+    if (!fullName) return badRequest("Nom manquant");
+    if (!DELIVERY_TYPES.includes(deliveryType)) return badRequest("Mode de livraison invalide");
+    if (!Array.isArray(items) || items.length === 0 || items.length > 50) return badRequest("Panier vide");
 
     const db = getAdminDb();
 
+    const existingOrder = await db.collection("orders").doc(orderId).get();
+    if (existingOrder.exists) {
+      return NextResponse.json({ error: "Cette commande a déjà été payée." }, { status: 409 });
+    }
+
     /* ─── Recalcul des prix depuis Firestore ─── */
     let subtotal = 0;
-    const verifiedItems: string[] = [];
+    const verifiedItems: CheckoutItem[] = [];
+    const requested = new Map<string, number>();
 
     for (const item of items) {
       if (!item.productId || !Number.isInteger(item.quantity) || item.quantity < 1) {
-        return NextResponse.json({ error: "Données article invalides" }, { status: 400 });
+        return badRequest("Données article invalides");
       }
 
       const snap = await db.collection("products").doc(item.productId).get();
-      if (!snap.exists) {
-        return NextResponse.json({ error: `Produit introuvable : ${item.productId}` }, { status: 400 });
-      }
+      if (!snap.exists) return badRequest("Un article de votre panier n'existe plus.");
 
       const product = snap.data() as {
         price: number;
         name: string;
         stock: number;
+        imageUrl?: string;
         customizationFields?: CustomizationField[];
       };
 
-      if (product.stock < item.quantity) {
-        return NextResponse.json({ error: `Stock insuffisant pour : ${product.name}` }, { status: 400 });
+      // Le stock se vérifie sur le cumul : un même produit peut figurer plusieurs fois (personnalisations différentes)
+      const total = (requested.get(item.productId) ?? 0) + item.quantity;
+      requested.set(item.productId, total);
+      if (product.stock < total) return badRequest(`Stock insuffisant pour : ${product.name}`);
+
+      const fields = product.customizationFields ?? [];
+      const customization: Record<string, string> = {};
+      const customizationLabels: Record<string, string> = {};
+      for (const field of fields) {
+        const value = clean(item.customization?.[field.id]);
+        if (!value) {
+          if (field.required) return badRequest(`Personnalisation manquante pour ${product.name} : ${field.label}`);
+          continue;
+        }
+        if (field.type !== "text" && !field.options?.some((o) => optionLabel(o) === value)) {
+          return badRequest(`Option indisponible pour ${product.name} : ${field.label}`);
+        }
+        customization[field.id] = value;
+        customizationLabels[field.label] = value;
       }
 
-      const extra = product.customizationFields && item.customization
-        ? calcExtra(product.customizationFields, item.customization)
-        : 0;
-
+      const extra = calcExtra(fields, customization);
       const unitPrice = product.price + extra;
       subtotal += unitPrice * item.quantity;
-      verifiedItems.push(`${product.name} x${item.quantity}`);
+
+      verifiedItems.push({
+        cartItemId: clean(item.cartItemId) || item.productId,
+        productId: item.productId,
+        name: product.name,
+        price: unitPrice,
+        basePrice: product.price,
+        imageUrl: product.imageUrl ?? "",
+        quantity: item.quantity,
+        ...(Object.keys(customization).length > 0 ? { customization, customizationLabels } : {}),
+        ...(extra > 0 ? { customizationExtra: extra } : {}),
+      });
     }
 
     /* ─── Code promo ─── */
     let discount = 0;
+    let appliedPromo: { id: string; code: string } | null = null;
     if (promoCode) {
       const promoSnap = await db
         .collection("promoCodes")
@@ -139,6 +133,7 @@ export async function POST(req: NextRequest) {
 
       if (!promoSnap.empty) {
         const promo = promoSnap.docs[0].data() as {
+          code: string;
           type: "percent" | "fixed";
           value: number;
           minOrder: number;
@@ -147,43 +142,120 @@ export async function POST(req: NextRequest) {
           discount = promo.type === "percent"
             ? Math.round(subtotal * promo.value / 100)
             : Math.min(subtotal, promo.value);
+          appliedPromo = { id: promoSnap.docs[0].id, code: promo.code };
         }
       }
     }
 
     const afterDiscount = Math.max(0, subtotal - discount);
 
-    /* ─── Frais de livraison ─── */
-    let shippingCost = 0;
+    /* ─── Livraison ─── */
+    const carrier = findCarrier(deliveryType, carrierId);
+    const shippingCost = computeShippingCost(deliveryType, carrierId, afterDiscount);
+
+    let shipping: CheckoutShipping;
     if (deliveryType === "relay") {
-      shippingCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : (CARRIERS[carrierId ?? "mondial-relay"] ?? 450);
-    } else if (deliveryType === "home") {
-      shippingCost = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : (CARRIERS[carrierId ?? "colissimo"] ?? 599);
+      const relay = body.relayPoint;
+      const relayId = clean(relay?.id, 20);
+      if (!relay || !relayId) return badRequest("Veuillez sélectionner un point relais.");
+      shipping = {
+        type: "relay",
+        fullName,
+        address: clean(relay.address),
+        city: clean(relay.city),
+        postalCode: clean(relay.postalCode, 10),
+        country: "France",
+        carrier: carrier?.name ?? "",
+        relayPoint: {
+          id: relayId,
+          name: clean(relay.name),
+          address: clean(relay.address),
+          city: clean(relay.city),
+          postalCode: clean(relay.postalCode, 10),
+          ...(relay.hours ? { hours: clean(relay.hours, 300) } : {}),
+        },
+      };
+    } else if (deliveryType === "pickup") {
+      shipping = {
+        type: "home",
+        fullName,
+        address: "En main propre",
+        city: "",
+        postalCode: "",
+        country: "France",
+        carrier: "En main propre",
+      };
+    } else {
+      const address = clean(body.address);
+      const city = clean(body.city);
+      const postalCode = clean(body.postal, 10);
+      if (!address || !city || !/^\d{5}$/.test(postalCode)) return badRequest("Adresse de livraison incomplète");
+      shipping = {
+        type: "home",
+        fullName,
+        address,
+        city,
+        postalCode,
+        country: "France",
+        carrier: carrier?.name ?? "",
+      };
     }
 
     const finalTotal = afterDiscount + shippingCost;
     const chargeAmount = Math.max(finalTotal, 50);
+    const weightGrams = verifiedItems.reduce((sum, i) => sum + i.quantity, 0) * 200;
+
+    // Compte client : le jeton est vérifié, l'identifiant n'est jamais pris tel quel du navigateur
+    const userId = await getRequestUid(req);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: chargeAmount,
       currency: "eur",
-      receipt_email: email ?? undefined,
+      receipt_email: email,
       metadata: {
-        orderId: orderId ?? "",
-        email: email ?? "",
-        fullName: fullName ?? "",
-        deliveryType: deliveryType ?? "",
-        items: verifiedItems.join(", ").slice(0, 500),
-        ...Object.fromEntries(
-          Object.entries(rest).map(([k, v]) => [k, String(v ?? "").slice(0, 500)])
-        ),
+        orderId,
+        email,
+        fullName,
+        deliveryType,
+        carrier: shipping.carrier ?? "",
+        weightGrams: String(weightGrams),
+        items: verifiedItems.map((i) => `${i.name} x${i.quantity}`).join(", ").slice(0, 500),
+        ...(shipping.relayPoint
+          ? {
+              relayId: shipping.relayPoint.id,
+              relayName: shipping.relayPoint.name,
+              relayAddress: shipping.address,
+              relayCity: shipping.city,
+              relayPostal: shipping.postalCode,
+            }
+          : { address: shipping.address, city: shipping.city, postal: shipping.postalCode }),
       },
       automatic_payment_methods: { enabled: true },
     });
 
+    const session: CheckoutSession = {
+      orderId,
+      paymentIntentId: paymentIntent.id,
+      userId,
+      userEmail: email,
+      items: verifiedItems,
+      shipping,
+      subtotal,
+      discount,
+      promoCode: appliedPromo?.code ?? null,
+      promoId: appliedPromo?.id ?? null,
+      shippingCost,
+      total: chargeAmount,
+      weightGrams,
+    };
+    await db.collection("checkoutSessions").doc(orderId).set({ ...session, createdAt: FieldValue.serverTimestamp() });
+
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       verifiedAmount: chargeAmount,
+      subtotal,
+      discount,
+      shippingCost,
     });
   } catch (err) {
     console.error("[stripe] create-payment-intent:", err);

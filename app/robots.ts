@@ -18,6 +18,8 @@ export default function robots(): MetadataRoute.Robots {
         "/souhaits",
         "/confirmation/",
         "/recherche",
+        "/avis/",
+        "/api/",
       ],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,

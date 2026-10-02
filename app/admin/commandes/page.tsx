@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, doc, updateDoc, query, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, limit, startAfter, serverTimestamp, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import type { Order } from "@/lib/types";
@@ -83,7 +83,8 @@ export default function AdminCommandesPage() {
   useEffect(() => { load(); }, []);
 
   async function updateStatus(docId: string, status: Order["status"]) {
-    await updateDoc(doc(db, "orders", docId), { status });
+    // La date de livraison déclenche, 7 jours plus tard, l'email de demande d'avis
+    await updateDoc(doc(db, "orders", docId), status === "delivered" ? { status, deliveredAt: serverTimestamp() } : { status });
     setOrders((prev) => prev.map((o) => o.docId === docId ? { ...o, status } : o));
 
     // Email de suivi au client
@@ -117,12 +118,13 @@ export default function AdminCommandesPage() {
   const [retryingShipment, setRetryingShipment] = useState<string | null>(null);
 
   async function retryMondialRelayShipment(order: OrderWithDocId) {
-    if (order.shipping?.type !== "relay" || !order.shipping.relayPoint) return;
+    if (order.shipping?.type !== "relay" || !order.shipping.relayPoint || !user) return;
     setRetryingShipment(order.docId);
     try {
+      const idToken = await user.getIdToken();
       const res = await fetch("/api/mondial-relay/create-shipment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({
           orderId: order.docId,
           weightGrams: 500,
@@ -462,7 +464,7 @@ export default function AdminCommandesPage() {
                         <div className="space-y-2 text-brown-mid">
                           <div className="flex justify-between">
                             <span>Paiement</span>
-                            <span className="font-medium">{order.payment?.method} ···· {order.payment?.last4}</span>
+                            <span className="font-medium">{order.payment?.method}{order.payment?.last4 ? ` ···· ${order.payment.last4}` : ""}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Date</span>

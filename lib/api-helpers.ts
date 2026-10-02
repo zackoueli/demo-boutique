@@ -13,21 +13,22 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 10;      // max requêtes par fenêtre
 const RATE_LIMIT_WINDOW = 60_000; // fenêtre de 60 secondes
 
-export function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
+// `key` identifie le compteur (ex. "promo:1.2.3.4") pour que chaque route ait le sien
+export function checkRateLimit(key: string, max: number = RATE_LIMIT_MAX): { allowed: boolean; remaining: number } {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+  const entry = rateLimitMap.get(key);
 
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return { allowed: true, remaining: max - 1 };
   }
 
-  if (entry.count >= RATE_LIMIT_MAX) {
+  if (entry.count >= max) {
     return { allowed: false, remaining: 0 };
   }
 
   entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count };
+  return { allowed: true, remaining: max - entry.count };
 }
 
 export function getClientIp(req: Request): string {

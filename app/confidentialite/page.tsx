@@ -55,8 +55,10 @@ export default function ConfidentialitePage() {
                 {[
                   ["Gestion des commandes", "Exécution du contrat", "5 ans (obligation légale)"],
                   ["Envoi d'emails de confirmation", "Exécution du contrat", "Durée de la relation commerciale"],
+                  ["Demande d'avis après livraison (un email)", "Intérêt légitime", "Durée de la relation commerciale"],
+                  ["Rappel de panier par email (3 messages au plus)", "Consentement (case à cocher)", "30 jours, ou jusqu'à désinscription"],
                   ["Gestion du compte client", "Consentement", "Jusqu'à suppression du compte"],
-                  ["Amélioration du site", "Intérêt légitime", "13 mois maximum"],
+                  ["Mesure de fréquentation anonyme (totaux par jour, sans identifiant)", "Intérêt légitime", "13 mois maximum"],
                 ].map(([f, b, d]) => (
                   <tr key={f} className="hover:bg-parchment/30">
                     <td className="px-4 py-2.5 text-brown-mid">{f}</td>
@@ -74,7 +76,8 @@ export default function ConfidentialitePage() {
           <p>Vos données peuvent être transmises aux prestataires suivants, dans le cadre strict de leur mission :</p>
           <ul className="list-disc list-inside space-y-1.5 pl-2">
             <li><strong className="text-brown-mid">Firebase (Google) :</strong> stockage des données et authentification</li>
-            <li><strong className="text-brown-mid">Resend :</strong> envoi des emails transactionnels</li>
+            <li><strong className="text-brown-mid">Stripe :</strong> paiement sécurisé (vos données bancaires ne nous sont jamais transmises)</li>
+            <li><strong className="text-brown-mid">Resend :</strong> envoi des emails (confirmation, suivi, rappel de panier, demande d&apos;avis)</li>
             <li><strong className="text-brown-mid">Vercel :</strong> hébergement du site</li>
             <li><strong className="text-brown-mid">Transporteurs :</strong> adresse de livraison transmise pour l&apos;expédition</li>
           </ul>
@@ -103,8 +106,13 @@ export default function ConfidentialitePage() {
         <section className="space-y-3">
           <h2 className="font-serif text-xl font-semibold text-brown">6. Cookies</h2>
           <p>
-            Ce site utilise uniquement des cookies techniques nécessaires au fonctionnement du site (session,
-            authentification). Aucun cookie publicitaire ou de suivi tiers n&apos;est utilisé.
+            Ce site utilise des cookies techniques nécessaires à son fonctionnement (session, authentification, panier).
+            Aucun cookie publicitaire n&apos;est utilisé.
+          </p>
+          <p>
+            La fréquentation est mesurée de façon anonyme, sans cookie : seuls des totaux par jour sont conservés
+            (nombre de visites, de fiches consultées, de paniers et de commandes).
+            {process.env.NEXT_PUBLIC_GA_ID && " Si vous l'acceptez dans le bandeau, Google Analytics dépose en complément des cookies de mesure d'audience ; vous pouvez refuser sans conséquence sur votre navigation."}
           </p>
         </section>
 

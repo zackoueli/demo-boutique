@@ -216,7 +216,7 @@ export default function AdminMessagesPage() {
                         <p className="text-xs font-semibold mb-1 text-terracotta">{selected.userName}</p>
                       )}
                       {msg.sender === "admin" && (
-                        <p className="text-xs font-semibold mb-1 text-cream/70">Bijoux & Co</p>
+                        <p className="text-xs font-semibold mb-1 text-cream/70">L&apos;Atelier d&apos;Anaïs</p>
                       )}
                       <p className="leading-relaxed">{msg.content}</p>
                       <p className={`text-xs mt-1 ${msg.sender === "admin" ? "text-cream/60" : "text-brown-light"}`}>

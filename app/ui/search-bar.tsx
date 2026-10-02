@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useCategories } from "@/lib/categories";
+import { searchProducts } from "@/lib/search";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, query as fsQuery, limit, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -15,7 +17,7 @@ export default function SearchBar() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [results, setResults] = useState<Product[]>([]);
+  const { categories } = useCategories();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loaded = useRef(false);
@@ -29,20 +31,11 @@ export default function SearchBar() {
       .catch(() => {});
   }, [open]);
 
-  // Filtre en temps réel
-  useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
-    const q = query.toLowerCase();
-    setResults(
-      allProducts
-        .filter((p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
-        )
-        .slice(0, 6)
-    );
-  }, [query, allProducts]);
+  // Filtre en temps réel, insensible aux accents et tolérant aux fautes de frappe
+  const results = useMemo(() => {
+    const labels = Object.fromEntries(categories.map((c) => [c.key, c.label]));
+    return searchProducts(allProducts, query, labels).slice(0, 6);
+  }, [query, allProducts, categories]);
 
   // Ferme en cliquant dehors
   useEffect(() => {
@@ -91,7 +84,7 @@ export default function SearchBar() {
 
       {/* Champ de recherche */}
       {open && (
-        <div className="flex items-center gap-2 bg-sand border border-border rounded-full px-4 py-2 w-64">
+        <div className="flex items-center gap-2 bg-sand border border-border rounded-full px-4 py-2 w-44 sm:w-64">
           <Search size={15} className="text-brown-light flex-shrink-0" />
           <form onSubmit={handleSubmit} className="flex-1">
             <input
@@ -111,7 +104,7 @@ export default function SearchBar() {
 
       {/* Dropdown résultats */}
       {open && query.trim() && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-cream border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-cream border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
           {results.length === 0 ? (
             <div className="px-5 py-6 text-center text-sm text-brown-light">
               Aucun résultat pour &ldquo;{query}&rdquo;
@@ -134,7 +127,7 @@ export default function SearchBar() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-brown truncate">{p.name}</p>
-                      <p className="text-xs text-brown-light capitalize">{p.category}</p>
+                      <p className="text-xs text-brown-light">{categories.find((c) => c.key === p.category)?.label ?? p.category}</p>
                     </div>
                     <span className="text-sm font-semibold text-terracotta flex-shrink-0">
                       {formatPrice(p.price)}

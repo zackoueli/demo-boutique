@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Product, CustomizationField } from "@/lib/types";
-import { useCart, buildCartItemId } from "@/lib/cart-context";
+import { useCart, buildCartItemId, quantityInCart } from "@/lib/cart-context";
 import { useToast } from "@/lib/toast-context";
 import { formatPrice } from "@/lib/utils";
+import { calcExtra, optionExtra, optionLabel } from "@/lib/customization";
+import { DEFAULT_SHIPPING_PRICE, FREE_SHIPPING_THRESHOLD, PREPARATION_DELAY } from "@/lib/shipping";
+import { SITE_URL } from "@/lib/site";
+import { track } from "@/lib/analytics";
+import { useRating } from "@/lib/ratings";
 import Link from "next/link";
-import { ShoppingBag, ArrowLeft, CheckCircle, Plus } from "lucide-react";
-import { ProductDetailSkeleton } from "@/app/ui/skeletons";
+import { ShoppingBag, ArrowLeft, CheckCircle, Clock, Truck, Lock, RotateCcw, MessageCircle, Star } from "lucide-react";
 import ImageCarousel from "@/app/ui/image-carousel";
 import ProductCard from "@/app/ui/product-card";
 import ProductReviews from "@/app/ui/product-reviews";
@@ -18,32 +22,6 @@ import ShareButtons from "@/app/ui/share-buttons";
 import { useCategories } from "@/lib/categories";
 
 type Tab = "description" | "materials" | "care";
-
-/* ─── Helpers parsing "NomOption" ou "NomOption:prix€" ─── */
-function optionLabel(opt: string): string {
-  return opt.split(":")[0].trim();
-}
-function optionExtra(opt: string): number {
-  const parts = opt.split(":");
-  if (parts.length < 2) return 0;
-  return Math.round(parseFloat(parts[1].trim()) * 100) || 0; // euros → centimes
-}
-
-/* ─── Calcul du supplément total de personnalisation ─── */
-function calcExtra(fields: CustomizationField[], customization: Record<string, string>): number {
-  let total = 0;
-  for (const field of fields) {
-    const val = customization[field.id];
-    if (!val) continue;
-    if (field.type === "text") {
-      total += field.extraPrice ?? 0;
-    } else {
-      const matchOpt = field.options?.find((o) => optionLabel(o) === val);
-      if (matchOpt) total += optionExtra(matchOpt);
-    }
-  }
-  return total;
-}
 
 /* ─── Rendu d'un champ de personnalisation ─── */
 function CustomizationInput({
@@ -193,45 +171,66 @@ function CustomizationInput({
   return null;
 }
 
-export default function ProductClient(props: { params: Promise<{ slug: string }> }) {
+export default function ProductClient({ product: initialProduct }: { product: Product }) {
   const { categories } = useCategories();
-  const [slug, setSlug] = useState<string | null>(null);
-  const [product, setProduct] = useState<Product | null>(null);
+  // Le produit arrive déjà rendu par le serveur ; il est rafraîchi ensuite pour un stock à jour
+  const [product, setProduct] = useState<Product>(initialProduct);
   const [similar, setSimilar] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [related, setRelated] = useState<Product[]>([]);
   const [added, setAdded] = useState(false);
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<Tab>("description");
   const [customization, setCustomization] = useState<Record<string, string>>({});
   const [errorFields, setErrorFields] = useState<Set<string>>(new Set());
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { showToast } = useToast();
+  const rating = useRating(product.id);
+
+  const productId = initialProduct.id;
+  const category = initialProduct.category;
+  const relatedIds = (initialProduct.relatedProductIds ?? []).join(",");
 
   useEffect(() => {
-    props.params.then(({ slug }) => setSlug(slug));
-  }, [props.params]);
-
-  useEffect(() => {
-    if (!slug) return;
-    getDocs(query(collection(db, "products"), where("slug", "==", slug), limit(1))).then((snap) => {
-      if (!snap.empty) {
-        const p = { id: snap.docs[0].id, ...snap.docs[0].data() } as Product;
-        setProduct(p);
-        getDocs(query(collection(db, "products"), where("category", "==", p.category), limit(5))).then((simSnap) => {
-          setSimilar(
-            simSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)).filter((s) => s.id !== p.id).slice(0, 4)
-          );
-        });
-      }
-      setLoading(false);
+    track("view_item", {
+      value: initialProduct.price,
+      items: [{ id: initialProduct.id, name: initialProduct.name, price: initialProduct.price, quantity: 1 }],
     });
-  }, [slug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
+
+  useEffect(() => {
+    let active = true;
+    getDoc(doc(db, "products", productId)).then((snap) => {
+      if (active && snap.exists()) setProduct({ id: snap.id, ...snap.data() } as Product);
+    }).catch(() => {});
+
+    // Compléments choisis à la main dans l'admin
+    Promise.all(relatedIds.split(",").filter(Boolean).map((id) => getDoc(doc(db, "products", id))))
+      .then((snaps) => {
+        if (active) setRelated(snaps.filter((d) => d.exists()).map((d) => ({ id: d.id, ...d.data() } as Product)));
+      })
+      .catch(() => {});
+
+    getDocs(query(collection(db, "products"), where("category", "==", category), limit(8))).then((simSnap) => {
+      if (!active) return;
+      const excluded = new Set([productId, ...relatedIds.split(",")]);
+      setSimilar(
+        simSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)).filter((s) => !excluded.has(s.id)).slice(0, 4)
+      );
+    }).catch(() => {});
+
+    return () => { active = false; };
+  }, [productId, category, relatedIds]);
+
+  const inCart = quantityInCart(items, product.id);
+  const available = Math.max(0, product.stock - inCart);
+  const hasCustomization = (product.customizationFields ?? []).length > 0;
 
   // Supplément total de personnalisation
-  const customizationExtra = product?.customizationFields
+  const customizationExtra = product.customizationFields
     ? calcExtra(product.customizationFields, customization)
     : 0;
-  const unitPrice = (product?.price ?? 0) + customizationExtra;
+  const unitPrice = product.price + customizationExtra;
 
   function handleCustomizationChange(fieldId: string, value: string) {
     setCustomization((prev) => ({ ...prev, [fieldId]: value }));
@@ -239,7 +238,10 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
   }
 
   function handleAddToCart() {
-    if (!product) return;
+    if (available <= 0) {
+      showToast({ message: "Quantité maximale déjà au panier" });
+      return;
+    }
 
     const requiredFields = product.customizationFields?.filter((f) => f.required) ?? [];
     const missing = requiredFields.filter((f) => !customization[f.id]?.trim());
@@ -268,7 +270,8 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
       price: unitPrice,
       basePrice: product.price,
       imageUrl: product.imageUrl,
-      quantity: qty,
+      quantity: Math.min(qty, available),
+      maxQuantity: product.stock,
     };
     if (Object.keys(customization).length > 0) itemToAdd.customization = customization;
     if (Object.keys(customizationLabels).length > 0) itemToAdd.customizationLabels = customizationLabels;
@@ -279,23 +282,8 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
     setTimeout(() => setAdded(false), 2000);
   }
 
-  if (loading) return <div className="bg-cream min-h-screen"><ProductDetailSkeleton /></div>;
-
-  if (!product) {
-    return (
-      <div className="bg-cream min-h-screen flex items-center justify-center px-4 text-center">
-        <div>
-          <p className="font-serif text-xl text-brown-light mb-4">Produit introuvable.</p>
-          <Link href="/catalogue" className="inline-flex items-center gap-2 text-terracotta hover:text-terra-light transition-colors text-sm">
-            <ArrowLeft size={14} /> Retour au catalogue
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const gallery = product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [];
-  const productUrl = typeof window !== "undefined" ? window.location.href : `https://demo.breizhapp.tech/produits/${product.slug}`;
+  const productUrl = `${SITE_URL}/produits/${product.slug}`;
 
   const tabs: { key: Tab; label: string; content: string | undefined }[] = [
     { key: "description", label: "Description", content: product.description },
@@ -323,6 +311,19 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
               <h1 className="font-serif text-3xl font-semibold text-brown leading-tight">{product.name}</h1>
               <WishlistButton productId={product.id} size={18} className="flex-shrink-0 mt-1" />
             </div>
+
+            {rating && (
+              <a href="#avis" className="flex items-center gap-2 mb-4 -mt-1 text-sm text-brown-light hover:text-terracotta transition-colors w-fit">
+                <span className="flex gap-0.5" aria-hidden="true">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} size={14} className={star <= Math.round(rating.average) ? "text-terracotta fill-terracotta" : "text-border"} />
+                  ))}
+                </span>
+                <span>
+                  <span className="font-medium text-brown-mid">{rating.average.toFixed(1).replace(".", ",")}</span> · {rating.count} avis
+                </span>
+              </a>
+            )}
 
             {/* Prix — avec détail personnalisation si applicable */}
             <div className="mb-6">
@@ -370,7 +371,7 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
               <div className="flex items-center border border-border rounded-xl bg-sand">
                 <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors">−</button>
                 <span className="px-4 text-sm font-medium text-brown">{qty}</span>
-                <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))} disabled={qty >= product.stock} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors disabled:opacity-30">+</button>
+                <button onClick={() => setQty((q) => Math.min(available, q + 1))} disabled={qty >= available} className="px-4 py-2.5 text-brown-mid hover:text-brown transition-colors disabled:opacity-30">+</button>
               </div>
               {qty > 1 && (
                 <span className="text-sm text-brown-light">= <span className="font-medium text-brown">{formatPrice(unitPrice * qty)}</span></span>
@@ -402,6 +403,43 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
               </button>
             )}
 
+            {/* Réassurance : les réponses aux doutes, juste sous le bouton d'achat */}
+            <ul className="mb-6 p-4 bg-sand border border-border rounded-2xl space-y-2.5 text-sm text-brown-mid">
+              <li className="flex items-start gap-2.5">
+                <Clock size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
+                {/* Une création personnalisée dépend d'échanges avec la cliente : pas de délai promis */}
+                <span>
+                  {hasCustomization
+                    ? "Façonné à la main en Bretagne, réalisé sur commande pour vous"
+                    : `Façonné à la main en Bretagne, expédié sous ${PREPARATION_DELAY}`}
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Truck size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
+                <span>
+                  Livraison en point relais {formatPrice(DEFAULT_SHIPPING_PRICE)}, offerte dès {formatPrice(FREE_SHIPPING_THRESHOLD)} d&apos;achat
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Lock size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
+                <span>Paiement sécurisé par Stripe, sans création de compte</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <RotateCcw size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
+                <span>
+                  {hasCustomization
+                    ? <>Création personnalisée, réalisée sur commande (<Link href="/cgv" className="underline underline-offset-2 hover:text-terracotta">conditions de retour</Link>)</>
+                    : <>Rétractation possible sous 14 jours (<Link href="/cgv" className="underline underline-offset-2 hover:text-terracotta">voir les CGV</Link>)</>}
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <MessageCircle size={15} className="text-terracotta flex-shrink-0 mt-0.5" />
+                <span>
+                  Une question ? <Link href="/contact" className="underline underline-offset-2 hover:text-terracotta">Écrivez à Anaïs</Link>, elle vous répond personnellement
+                </span>
+              </li>
+            </ul>
+
             <div className="mb-6">
               <ShareButtons url={productUrl} title={product.name} />
             </div>
@@ -426,7 +464,19 @@ export default function ProductClient(props: { params: Promise<{ slug: string }>
           </div>
         </div>
 
-        <ProductReviews productId={product.id} />
+        {related.length > 0 && (
+          <div className="mt-16">
+            <p className="text-xs text-terracotta font-medium uppercase tracking-[0.18em] mb-1">Choisis par Anaïs</p>
+            <h2 className="font-serif text-2xl font-semibold text-brown mb-8">Pour accompagner cette création</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              {related.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </div>
+        )}
+
+        <div id="avis" className="scroll-mt-24">
+          <ProductReviews productId={product.id} />
+        </div>
 
         {similar.length > 0 && (
           <div className="mt-20">

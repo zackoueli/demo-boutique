@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState } from "react";
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, orderBy, query, onSnapshot, serverTimestamp,
@@ -16,6 +16,8 @@ export interface Category {
   label: string;
   subCategories: SubCategory[];
   imageUrl?: string;
+  /** Texte d'introduction affiché en haut de la page catégorie (référencement) */
+  description?: string;
   order: number;
   createdAt?: unknown;
 }
@@ -24,20 +26,34 @@ export async function updateCategoryImage(id: string, imageUrl: string): Promise
   await updateDoc(doc(db, "categories", id), { imageUrl });
 }
 
-export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+export async function updateCategoryDescription(id: string, description: string): Promise<void> {
+  await updateDoc(doc(db, "categories", id), { description });
+}
+
+interface CategoriesValue {
+  categories: Category[];
+  loading: boolean;
+}
+
+const CategoriesContext = createContext<CategoriesValue>({ categories: [], loading: true });
+
+/** Un seul abonnement Firestore pour toute l'application (navbar, vignettes, filtres…) */
+export function CategoriesProvider({ children }: { children: React.ReactNode }) {
+  const [value, setValue] = useState<CategoriesValue>({ categories: [], loading: true });
 
   useEffect(() => {
     const q = query(collection(db, "categories"), orderBy("order", "asc"));
     const unsub = onSnapshot(q, (snap) => {
-      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Category)));
-      setLoading(false);
-    }, () => setLoading(false));
+      setValue({ categories: snap.docs.map((d) => ({ id: d.id, ...d.data() } as Category)), loading: false });
+    }, () => setValue((v) => ({ ...v, loading: false })));
     return unsub;
   }, []);
 
-  return { categories, loading };
+  return createElement(CategoriesContext.Provider, { value }, children);
+}
+
+export function useCategories() {
+  return useContext(CategoriesContext);
 }
 
 export async function addCategory(label: string): Promise<void> {

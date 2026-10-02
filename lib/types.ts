@@ -25,6 +25,8 @@ export interface Product {
   stock: number;
   featured: boolean;
   customizationFields?: CustomizationField[];
+  /** Produits complémentaires choisis à la main dans l'admin (1 à 3) */
+  relatedProductIds?: string[];
   createdAt: Date;
 }
 
@@ -39,6 +41,7 @@ export interface CartItem {
   customization?: Record<string, string>; // fieldId -> valeur choisie
   customizationLabels?: Record<string, string>; // fieldLabel -> valeur choisie (pour affichage)
   customizationExtra?: number; // supplément de personnalisation en centimes (pour affichage)
+  maxQuantity?: number; // stock connu au moment de l'ajout
 }
 
 export interface RelayPoint {
@@ -79,14 +82,17 @@ export interface Order {
     mondialRelay?: MondialRelayShipment;
   };
   payment: {
-    last4: string;
+    last4?: string;
     method: string;
+    stripePaymentIntentId?: string;
   };
   subtotal: number;
   discount?: number;
   promoCode?: string | null;
+  shippingCost?: number;
   total: number;
   createdAt: Date;
+  deliveredAt?: Date;
 }
 
 export interface AppUser {
