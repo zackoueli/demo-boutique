@@ -5,6 +5,8 @@ import type { Product } from "@/lib/types";
 
 // Catégories et coups de cœur sont lus côté serveur : le titre, les collections et
 // l'image principale sont dans le HTML initial, sans attendre le JavaScript.
+// Si Firestore est injoignable lors d'une régénération, l'erreur remonte et la
+// dernière version valide de la page reste servie.
 export default async function HomePage() {
   const [categoryDocs, featuredDocs] = await Promise.all([
     queryCollection("categories", { orderBy: { field: "order" }, revalidate: 300 }),

@@ -16,7 +16,8 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
 });
 
 async function getRating(productId: string) {
-  const reviews = await queryCollection("reviews", { where: ["productId", productId], revalidate: 300 });
+  // Les avis sont un plus : s'ils sont illisibles, la fiche s'affiche sans note
+  const reviews = await queryCollection("reviews", { where: ["productId", productId], revalidate: 300 }).catch(() => []);
   const ratings = reviews.map((r) => r.data.rating).filter((r): r is number => typeof r === "number");
   if (ratings.length === 0) return null;
   return { average: ratings.reduce((sum, r) => sum + r, 0) / ratings.length, count: ratings.length };

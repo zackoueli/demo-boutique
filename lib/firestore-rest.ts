@@ -49,37 +49,46 @@ interface QueryOptions {
   revalidate?: number;
 }
 
-/** Requête sur une collection ; renvoie [] en cas d'erreur pour ne jamais casser le rendu */
+/**
+ * Requête sur une collection. Une panne réseau lève une erreur au lieu de renvoyer une liste vide :
+ * « Firestore injoignable » ne doit jamais être pris pour « ce produit n'existe pas ».
+ */
 export async function queryCollection(collectionId: string, opts: QueryOptions = {}): Promise<RestDoc[]> {
-  try {
-    const structuredQuery: Record<string, unknown> = { from: [{ collectionId }] };
-    if (opts.where) {
-      structuredQuery.where = {
-        fieldFilter: { field: { fieldPath: opts.where[0] }, op: "EQUAL", value: encodeValue(opts.where[1]) },
-      };
-    }
-    if (opts.orderBy) {
-      structuredQuery.orderBy = [{ field: { fieldPath: opts.orderBy.field }, direction: opts.orderBy.direction ?? "ASCENDING" }];
-    }
-    if (opts.limit) structuredQuery.limit = opts.limit;
-
-    const res = await fetch(`${BASE}:runQuery`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ structuredQuery }),
-      next: { revalidate: opts.revalidate ?? 60 },
-    });
-    if (!res.ok) return [];
-
-    const rows = (await res.json()) as { document?: { name: string; fields?: Record<string, FirestoreValue> } }[];
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .filter((r) => r.document)
-      .map((r) => ({
-        id: r.document!.name.split("/").pop()!,
-        data: decodeFields(r.document!.fields ?? {}),
-      }));
-  } catch {
-    return [];
+  const structuredQuery: Record<string, unknown> = { from: [{ collectionId }] };
+  if (opts.where) {
+    structuredQuery.where = {
+      fieldFilter: { field: { fieldPath: opts.where[0] }, op: "EQUAL", value: encodeValue(opts.where[1]) },
+    };
   }
+  if (opts.orderBy) {
+    structuredQuery.orderBy = [{ field: { fieldPath: opts.orderBy.field }, direction: opts.orderBy.direction ?? "ASCENDING" }];
+  }
+  if (opts.limit) structuredQuery.limit = opts.limit;
+
+  let lastError: unknown;
+  // Deux tentatives : les coupures vers Firestore sont en général passagères
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${BASE}:runQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ structuredQuery }),
+        signal: AbortSignal.timeout(8000),
+        next: { revalidate: opts.revalidate ?? 60 },
+      });
+      if (!res.ok) throw new Error(`Firestore a répondu ${res.status}`);
+
+      const rows = (await res.json()) as { document?: { name: string; fields?: Record<string, FirestoreValue> } }[];
+      if (!Array.isArray(rows)) throw new Error("Réponse Firestore inattendue");
+      return rows
+        .filter((r) => r.document)
+        .map((r) => ({
+          id: r.document!.name.split("/").pop()!,
+          data: decodeFields(r.document!.fields ?? {}),
+        }));
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`Lecture Firestore impossible (${collectionId})`, { cause: lastError });
 }
