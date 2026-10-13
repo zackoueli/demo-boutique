@@ -94,8 +94,8 @@ export default function CGVPage() {
           </p>
           <p>
             Pour exercer ce droit, contactez-nous par email à{" "}
-            <a href="mailto:contact@histoire-eternelle-l-atelier.fr" className="text-terracotta hover:underline">
-              contact@histoire-eternelle-l-atelier.fr
+            <a href="mailto:histoireeternelle.latelier@gmail.com" className="text-terracotta hover:underline">
+              histoireeternelle.latelier@gmail.com
             </a>{" "}
             avant l&apos;expiration du délai.
           </p>

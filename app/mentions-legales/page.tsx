@@ -26,7 +26,7 @@ export default function MentionsLegalesPage() {
             <p>Forme juridique : [À compléter — ex : Auto-entrepreneur / SASU]</p>
             <p>SIRET : [À compléter]</p>
             <p>Adresse : [À compléter]</p>
-            <p>Email : <a href="mailto:contact@histoire-eternelle-l-atelier.fr" className="text-terracotta hover:underline">contact@histoire-eternelle-l-atelier.fr</a></p>
+            <p>Email : <a href="mailto:histoireeternelle.latelier@gmail.com" className="text-terracotta hover:underline">histoireeternelle.latelier@gmail.com</a></p>
           </div>
         </section>
 

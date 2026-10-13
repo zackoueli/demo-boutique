@@ -24,8 +24,8 @@ export default function ConfidentialitePage() {
           <p>
             Le responsable du traitement de vos données personnelles est <strong className="text-brown">Histoire Eternelle - L&apos;Atelier d&apos;Anaïs</strong>.
             Pour toute question relative à vos données, contactez-nous à{" "}
-            <a href="mailto:contact@histoire-eternelle-l-atelier.fr" className="text-terracotta hover:underline">
-              contact@histoire-eternelle-l-atelier.fr
+            <a href="mailto:histoireeternelle.latelier@gmail.com" className="text-terracotta hover:underline">
+              histoireeternelle.latelier@gmail.com
             </a>.
           </p>
         </section>
@@ -96,8 +96,8 @@ export default function ConfidentialitePage() {
           </ul>
           <p>
             Pour exercer ces droits, contactez-nous à{" "}
-            <a href="mailto:contact@histoire-eternelle-l-atelier.fr" className="text-terracotta hover:underline">
-              contact@histoire-eternelle-l-atelier.fr
+            <a href="mailto:histoireeternelle.latelier@gmail.com" className="text-terracotta hover:underline">
+              histoireeternelle.latelier@gmail.com
             </a>. Vous disposez également du droit d&apos;introduire une réclamation auprès de la{" "}
             <strong className="text-brown-mid">CNIL</strong> (cnil.fr).
           </p>

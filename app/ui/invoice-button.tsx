@@ -51,7 +51,7 @@ export default function InvoiceButton({ order, variant = "default", className }:
         siret: "103 330 692 000 15",
         status: "Micro-entreprise",
         tva: "TVA non applicable, art. 293B du CGI",
-        email: "historieeternelle.latelier@gmail.com",
+        email: "histoireeternelle.latelier@gmail.com",
       };
 
       // ── Numéro de facture séquentiel basé sur l'ID commande ──
