@@ -43,6 +43,8 @@ export const metadata: Metadata = {
       },
     ],
   },
+  // Validation du site dans Google Merchant Center (compte de la boutique)
+  verification: { google: "QlEZ761cpSMkXiXcswOlTQljyatt6AMz01HC3ivVR40" },
 };
 
 const jsonLd = {
