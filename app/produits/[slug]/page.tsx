@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import ProductClient from "./product-client";
 import { queryCollection } from "@/lib/firestore-rest";
+import { DEFAULT_SHIPPING_PRICE, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import type { Product } from "@/lib/types";
 
@@ -63,6 +64,40 @@ export default async function ProductPage(props: Props) {
 
   const rating = await getRating(product.id);
   const images = product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [];
+  // Même règle que la fiche : une création personnalisée est faite sur commande (pas de délai promis, pas de rétractation)
+  const isCustom = (product.customizationFields?.length ?? 0) > 0;
+
+  // Frais de port : tarif point relais par défaut, offert au-delà du seuil (cf. lib/shipping.ts)
+  const shippingDetails = {
+    "@type": "OfferShippingDetails",
+    shippingRate: {
+      "@type": "MonetaryAmount",
+      value: (product.price >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_PRICE / 100).toFixed(2),
+      currency: "EUR",
+    },
+    shippingDestination: { "@type": "DefinedRegion", addressCountry: "FR" },
+    deliveryTime: {
+      "@type": "ShippingDeliveryTime",
+      ...(isCustom ? {} : { handlingTime: { "@type": "QuantitativeValue", minValue: 2, maxValue: 5, unitCode: "DAY" } }),
+      transitTime: { "@type": "QuantitativeValue", minValue: 2, maxValue: 4, unitCode: "DAY" },
+    },
+  };
+
+  // Politique de retour : celle des CGV (articles 7 et 8)
+  const returnPolicy = isCustom
+    ? {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "FR",
+        returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+      }
+    : {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "FR",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 14,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/ReturnFeesCustomerResponsibility",
+      };
 
   // Données structurées : prix, disponibilité et note affichables dans les résultats Google
   const jsonLd = {
@@ -80,6 +115,8 @@ export default async function ProductPage(props: Props) {
       price: (product.price / 100).toFixed(2),
       availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
+      shippingDetails,
+      hasMerchantReturnPolicy: returnPolicy,
     },
     ...(rating
       ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average.toFixed(1), reviewCount: rating.count } }

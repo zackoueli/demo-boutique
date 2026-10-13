@@ -1,17 +1,18 @@
-"use client";
-
-import { Suspense } from "react";
-import { CatalogueContent } from "@/app/catalogue/page";
-import { ProductGridSkeleton } from "@/app/ui/skeletons";
+import CatalogueContent from "@/app/catalogue/catalogue-content";
+import type { Product } from "@/lib/types";
 
 export default function CategoryClient({
   categoryKey,
   categoryLabel,
   categoryDescription,
+  subCategory,
+  initialProducts,
 }: {
   categoryKey: string;
   categoryLabel: string;
   categoryDescription?: string;
+  subCategory?: string;
+  initialProducts: Product[] | null;
 }) {
   return (
     <div className="bg-cream min-h-screen">
@@ -26,9 +27,7 @@ export default function CategoryClient({
           )}
         </div>
       </div>
-      <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-10"><ProductGridSkeleton count={8} /></div>}>
-        <CatalogueContent fixedCategory={categoryKey} />
-      </Suspense>
+      <CatalogueContent activeCategory={categoryKey} activeSubCategory={subCategory} initialProducts={initialProducts} />
     </div>
   );
 }

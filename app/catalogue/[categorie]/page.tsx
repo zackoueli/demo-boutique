@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import CategoryClient from "./category-client";
 import { queryCollection } from "@/lib/firestore-rest";
+import { getAllProducts } from "@/lib/products-server";
 
 type Props = { params: Promise<{ categorie: string }> };
 
@@ -42,9 +43,10 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   };
 }
 
-export default async function CategoryPage(props: Props) {
+export default async function CategoryPage(props: Props & { searchParams: Promise<{ sub?: string }> }) {
   const { categorie } = await props.params;
-  const category = await fetchCategory(categorie);
+  const { sub } = await props.searchParams;
+  const [category, products] = await Promise.all([fetchCategory(categorie), getAllProducts()]);
 
   if (!category) notFound();
 
@@ -53,6 +55,8 @@ export default async function CategoryPage(props: Props) {
       categoryKey={category.key}
       categoryLabel={category.label}
       categoryDescription={category.description}
+      subCategory={sub}
+      initialProducts={products}
     />
   );
 }
